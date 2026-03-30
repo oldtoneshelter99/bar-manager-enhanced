@@ -8,20 +8,11 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
 
 // ─── PASSWORD ────────────────────────────────────────
-const PW_HASH = 'ce6707028b3be07186c82345790a90ab556dd4f3708557d811815b0e19ea27ec';
+const PW_KEY = 'YWRtaW44ODg4';
 
-function sha256(str) {
-  // Using SubtleCrypto for real SHA-256
-  const buf = new TextEncoder().encode(str);
-  return crypto.subtle.digest('SHA-256', buf).then(b =>
-    Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')
-  );
-}
-
-async function checkPw() {
+function checkPw() {
   const input = document.getElementById('pwInput').value;
-  const hash  = await sha256(input);
-  if (hash === PW_HASH) {
+  if (btoa(input) === PW_KEY) {
     document.getElementById('pwScreen').style.display = 'none';
     sessionStorage.setItem('dsAuth', '1');
   } else {
@@ -38,7 +29,6 @@ async function checkPw() {
 if (sessionStorage.getItem('dsAuth') === '1') {
   document.getElementById('pwScreen').style.display = 'none';
 } else {
-  // Focus input on load
   window.addEventListener('DOMContentLoaded', () => {
     const inp = document.getElementById('pwInput');
     if (inp) setTimeout(() => inp.focus(), 100);
