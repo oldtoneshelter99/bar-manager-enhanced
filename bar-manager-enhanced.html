@@ -1,0 +1,3623 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BAR MANAGER — Drunk Shelter Hankou</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
+
+// ─── PASSWORD ────────────────────────────────────────
+const PW_HASH = 'ce6707028b3be07186c82345790a90ab556dd4f3708557d811815b0e19ea27ec';
+
+function sha256(str) {
+  // Using SubtleCrypto for real SHA-256
+  const buf = new TextEncoder().encode(str);
+  return crypto.subtle.digest('SHA-256', buf).then(b =>
+    Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')
+  );
+}
+
+async function checkPw() {
+  const input = document.getElementById('pwInput').value;
+  const hash  = await sha256(input);
+  if (hash === PW_HASH) {
+    document.getElementById('pwScreen').style.display = 'none';
+    sessionStorage.setItem('dsAuth', '1');
+  } else {
+    const inp = document.getElementById('pwInput');
+    const err = document.getElementById('pwError');
+    inp.classList.add('error');
+    err.textContent = '密碼錯誤，請再試一次';
+    inp.value = '';
+    setTimeout(() => inp.classList.remove('error'), 400);
+  }
+}
+
+// Auto-unlock if already authenticated this session
+if (sessionStorage.getItem('dsAuth') === '1') {
+  document.getElementById('pwScreen').style.display = 'none';
+} else {
+  // Focus input on load
+  window.addEventListener('DOMContentLoaded', () => {
+    const inp = document.getElementById('pwInput');
+    if (inp) setTimeout(() => inp.focus(), 100);
+  });
+}
+
+</script>
+<style>
+:root {
+  --bg:       #0D0A07;
+  --surface:  #1A1208;
+  --card:     #221810;
+  --card2:    #2A1E0E;
+  --border:   #3A2E1E;
+  --gold:     #C8903A;
+  --gold-l:   #E8C07A;
+  --gold-d:   #7A4E18;
+  --text:     #E8DFC8;
+  --muted:    #88785A;
+  --dim:      #4A3A28;
+  --red:      #FF3C6E;
+  --red-bg:   rgba(255,60,110,0.12);
+  --green:    #56C97B;
+  --green-bg: rgba(86,201,123,0.12);
+  --blue:     #6AABF7;
+  --blue-bg:  rgba(106,171,247,0.12);
+  --purple:   #B48EF0;
+  --sidebar-w: 220px;
+  --r: 10px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans TC', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  font-size: 14px;
+}
+
+/* ─── SIDEBAR ─────────────────────────────────────── */
+.sidebar {
+  width: var(--sidebar-w);
+  min-height: 100vh;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0;
+  z-index: 100;
+}
+
+.sidebar-logo {
+  padding: 24px 20px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo .en {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 900;
+  font-size: 13px;
+  color: var(--gold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.sidebar-logo .sub {
+  font-family: 'Space Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  margin-top: 3px;
+}
+
+.month-picker {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+.month-picker label {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 6px;
+}
+.month-picker select {
+  width: 100%;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 7px 10px;
+  border-radius: 6px;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  outline: none;
+}
+.month-picker select:focus { border-color: var(--gold); }
+
+.sidebar-nav { flex: 1; padding: 12px 0; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 20px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  transition: all 0.2s;
+  border-left: 3px solid transparent;
+  letter-spacing: 0.02em;
+}
+.nav-item:hover { background: var(--card); color: var(--text); }
+.nav-item.active {
+  background: rgba(200,144,58,0.08);
+  color: var(--gold-l);
+  border-left-color: var(--gold);
+}
+.nav-icon { font-size: 16px; width: 20px; text-align: center; }
+
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+}
+.sidebar-footer .venue {
+  font-size: 10px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+/* ─── MAIN ─────────────────────────────────────────── */
+.main {
+  margin-left: var(--sidebar-w);
+  flex: 1;
+  min-height: 100vh;
+  padding: 32px;
+  max-width: calc(1400px - var(--sidebar-w));
+}
+
+.page-header {
+  margin-bottom: 28px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+}
+.page-title {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 900;
+  font-size: 24px;
+  color: var(--text);
+  letter-spacing: 0.05em;
+}
+.page-title span { color: var(--gold); }
+.page-subtitle {
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.15em;
+  margin-top: 4px;
+}
+
+.module { display: none; }
+.module.active { display: block; }
+
+/* ─── KPI CARDS ─────────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 18px 20px;
+  position: relative;
+  overflow: hidden;
+}
+.kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--accent, var(--gold));
+}
+.kpi-label {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.kpi-value {
+  font-family: 'Space Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+.kpi-value.gold { color: var(--gold-l); }
+.kpi-value.green { color: var(--green); }
+.kpi-value.red { color: var(--red); }
+.kpi-sub {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+/* ─── PANELS ────────────────────────────────────────── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.panel-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.panel-title {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--gold-l);
+  letter-spacing: 0.08em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.panel-body { padding: 20px; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+
+/* ─── TABLES ────────────────────────────────────────── */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th {
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+td {
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(58,46,30,0.5);
+  font-size: 13px;
+  vertical-align: middle;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(200,144,58,0.04); }
+.td-mono {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+}
+.td-right { text-align: right; }
+.td-gold { color: var(--gold-l); font-family: 'Space Mono', monospace; }
+.td-green { color: var(--green); font-family: 'Space Mono', monospace; }
+.td-red { color: var(--red); font-family: 'Space Mono', monospace; }
+.td-muted { color: var(--muted); }
+
+/* ─── FORMS ─────────────────────────────────────────── */
+.form-row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.form-group { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 120px; }
+.form-group label {
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+input, select, textarea {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 12px;
+  border-radius: 6px;
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--gold); }
+input[type=number] { font-family: 'Space Mono', monospace; }
+
+/* ─── BUTTONS ───────────────────────────────────────── */
+.btn {
+  padding: 9px 18px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: 'Noto Sans TC', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.btn-gold {
+  background: var(--gold);
+  color: #0D0A07;
+  font-weight: 700;
+}
+.btn-gold:hover { background: var(--gold-l); }
+.btn-outline {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+.btn-outline:hover { border-color: var(--gold); color: var(--gold-l); }
+.btn-danger { background: var(--red-bg); color: var(--red); border: 1px solid rgba(255,60,110,0.3); }
+.btn-danger:hover { background: rgba(255,60,110,0.2); }
+.btn-sm { padding: 5px 12px; font-size: 11px; }
+.btn-green { background: var(--green-bg); color: var(--green); border: 1px solid rgba(86,201,123,0.3); }
+.btn-green:hover { background: rgba(86,201,123,0.2); }
+
+/* ─── CHIPS & BADGES ────────────────────────────────── */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+}
+.chip-gold { background: rgba(200,144,58,0.15); color: var(--gold-l); border: 1px solid rgba(200,144,58,0.3); }
+.chip-green { background: var(--green-bg); color: var(--green); }
+.chip-red { background: var(--red-bg); color: var(--red); }
+.chip-blue { background: var(--blue-bg); color: var(--blue); }
+
+/* ─── EMPLOYEE CARD ─────────────────────────────────── */
+.emp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+.emp-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 18px;
+  position: relative;
+}
+.emp-card.ft { border-color: rgba(200,144,58,0.3); }
+.emp-name {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+.emp-type {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+.emp-stat-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.emp-stat-label { font-size: 11px; color: var(--muted); }
+.emp-stat-value { font-family: 'Space Mono', monospace; font-size: 13px; color: var(--text); }
+.emp-total {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.emp-total-label { font-size: 12px; color: var(--gold); font-weight: 500; }
+.emp-total-value { font-family: 'Space Mono', monospace; font-size: 18px; font-weight: 700; color: var(--gold-l); }
+
+.inline-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.inline-edit input {
+  width: 80px;
+  padding: 4px 8px;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  background: var(--card2);
+}
+
+/* ─── BONUS CONFIG ──────────────────────────────────── */
+.bonus-tier {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.tier-label { font-size: 12px; color: var(--muted); min-width: 120px; }
+.tier-input { width: 80px; }
+.tier-pct { color: var(--gold); font-family: 'Space Mono', monospace; font-size: 13px; }
+
+/* ─── VENDOR CATEGORY BADGE ─────────────────────────── */
+.cat-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+}
+
+/* ─── CHART CONTAINERS ──────────────────────────────── */
+.chart-wrap { position: relative; height: 260px; }
+.chart-wrap-sm { position: relative; height: 200px; }
+.chart-wrap-lg { position: relative; height: 320px; }
+
+/* ─── INSIGHT CARDS ─────────────────────────────────── */
+.insights-list { display: flex; flex-direction: column; gap: 10px; }
+.insight-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  background: var(--card);
+  border-radius: 8px;
+  border-left: 3px solid var(--gold);
+}
+.insight-item.warn { border-left-color: var(--red); }
+.insight-item.good { border-left-color: var(--green); }
+.insight-icon { font-size: 18px; }
+.insight-text { font-size: 13px; line-height: 1.6; color: var(--text); }
+.insight-text strong { color: var(--gold-l); }
+.insight-item.warn .insight-text strong { color: var(--red); }
+.insight-item.good .insight-text strong { color: var(--green); }
+
+/* ─── SHAREHOLDER REPORT ────────────────────────────── */
+.report-toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+
+.report-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+}
+.report-header {
+  background: linear-gradient(135deg, #1A1208 0%, #0D0A07 100%);
+  padding: 36px 40px;
+  border-bottom: 2px solid var(--gold-d);
+  position: relative;
+  overflow: hidden;
+}
+.report-header::before {
+  content: '';
+  position: absolute;
+  right: -60px; top: -60px;
+  width: 300px; height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200,144,58,0.06) 0%, transparent 70%);
+}
+.report-brand {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 900;
+  font-size: 20px;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.report-period-label {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  margin-bottom: 16px;
+}
+.report-period {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  font-size: 32px;
+  color: var(--text);
+}
+.report-body { padding: 36px 40px; }
+.report-section { margin-bottom: 36px; }
+.report-section-title {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--gold);
+  letter-spacing: 0.08em;
+  margin-bottom: 16px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.report-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.report-kpi {
+  text-align: center;
+  padding: 20px;
+  background: var(--card);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.report-kpi-value {
+  font-family: 'Space Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text);
+  display: block;
+}
+.report-kpi-label { font-size: 11px; color: var(--muted); margin-top: 6px; letter-spacing: 0.08em; }
+.report-kpi.highlight .report-kpi-value { color: var(--gold-l); }
+.report-kpi.positive .report-kpi-value { color: var(--green); }
+.report-kpi.negative .report-kpi-value { color: var(--red); }
+
+/* ─── WATERFALL ─────────────────────────────────────── */
+.waterfall { display: flex; flex-direction: column; gap: 6px; }
+.wf-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border-radius: 6px;
+}
+.wf-row.header { background: var(--card2); border-bottom: 1px solid var(--border); }
+.wf-row.total { background: rgba(200,144,58,0.1); border: 1px solid rgba(200,144,58,0.3); }
+.wf-label { flex: 1; font-size: 13px; color: var(--text); }
+.wf-bar-wrap { width: 200px; height: 8px; background: var(--dim); border-radius: 4px; overflow: hidden; }
+.wf-bar { height: 100%; border-radius: 4px; }
+.wf-amount { font-family: 'Space Mono', monospace; font-size: 13px; min-width: 100px; text-align: right; }
+
+/* ─── PRINT ─────────────────────────────────────────── */
+@media print {
+  .sidebar, .report-toolbar, .page-header .btn, .no-print { display: none !important; }
+  .main { margin-left: 0; padding: 0; max-width: 100%; }
+  .module { display: block !important; }
+  body { background: white; color: black; }
+  .report-container { border: none; }
+  .report-header { background: #f5f0e8 !important; }
+}
+
+/* ─── TOTALS ROW ────────────────────────────────────── */
+.tbl-total td {
+  font-family: 'Space Mono', monospace;
+  font-weight: 700;
+  color: var(--gold-l);
+  border-top: 1px solid var(--border);
+  background: rgba(200,144,58,0.05);
+}
+
+/* ─── PROGRESS BAR ──────────────────────────────────── */
+.progress-wrap { background: var(--dim); border-radius: 4px; overflow: hidden; height: 6px; margin-top: 6px; }
+.progress-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+
+/* ─── DIVIDERS ──────────────────────────────────────── */
+.divider { height: 1px; background: var(--border); margin: 20px 0; }
+.section-gap { height: 28px; }
+
+/* ─── MONTH SUMMARY ROW ─────────────────────────────── */
+.summary-row {
+  display: flex;
+  gap: 12px;
+  background: rgba(200,144,58,0.07);
+  border: 1px solid rgba(200,144,58,0.2);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.summary-item { display: flex; flex-direction: column; gap: 3px; min-width: 110px; }
+.summary-item-label { font-size: 10px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+.summary-item-value { font-family: 'Space Mono', monospace; font-size: 14px; color: var(--gold-l); }
+
+/* ─── CONFIG SECTION ────────────────────────────────── */
+.config-section {
+  background: rgba(200,144,58,0.05);
+  border: 1px solid rgba(200,144,58,0.2);
+  border-radius: 8px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+.config-title {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ─── TOAST ─────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  background: var(--surface);
+  border: 1px solid var(--gold);
+  color: var(--gold-l);
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  z-index: 9999;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s;
+  pointer-events: none;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+
+@media (max-width: 900px) {
+  :root { --sidebar-w: 0px; }
+  .sidebar { display: none; }
+  .main { margin-left: 0; padding: 16px; }
+  .two-col, .three-col, .report-kpi-grid { grid-template-columns: 1fr; }
+}
+
+/* ─── PASSWORD SCREEN ───────────────────────────────── */
+#pwScreen {
+  position: fixed; inset: 0; z-index: 9999;
+  background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column;
+}
+.pw-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 40px 44px;
+  width: 360px;
+  text-align: center;
+}
+.pw-logo {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 900;
+  font-size: 18px;
+  color: var(--gold);
+  letter-spacing: 0.15em;
+  margin-bottom: 4px;
+}
+.pw-sub {
+  font-family: 'Space Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.2em;
+  margin-bottom: 28px;
+}
+.pw-input {
+  width: 100%;
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: 'Space Mono', monospace;
+  font-size: 18px;
+  text-align: center;
+  letter-spacing: 0.3em;
+  padding: 14px;
+  outline: none;
+  margin-bottom: 16px;
+}
+.pw-input:focus { border-color: var(--gold); }
+.pw-input.error { border-color: var(--red); animation: shake 0.3s ease; }
+.pw-btn {
+  width: 100%;
+  background: var(--gold);
+  color: #0D0A07;
+  border: none;
+  border-radius: 8px;
+  padding: 13px;
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  letter-spacing: 0.08em;
+  transition: background 0.2s;
+}
+.pw-btn:hover { background: var(--gold-l); }
+.pw-error {
+  font-size: 12px;
+  color: var(--red);
+  margin-top: 10px;
+  min-height: 18px;
+  font-family: 'Space Mono', monospace;
+}
+@keyframes shake {
+  0%,100%{transform:translateX(0)}
+  25%{transform:translateX(-8px)}
+  75%{transform:translateX(8px)}
+}
+
+</style>
+</head>
+<body>
+
+<!-- ─── SIDEBAR ─────────────────────────────────────── -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="en">Drunk Shelter</div>
+    <div class="sub">BAR MANAGER v2.0</div>
+  </div>
+  <div id="syncStatus" style="padding:8px 20px;font-size:11px;font-family:'Space Mono',monospace;letter-spacing:0.08em;color:var(--muted);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:6px;min-height:34px;"></div>
+  <div class="month-picker">
+    <label>選擇月份</label>
+    <select id="monthSelect" onchange="changeMonth(this.value)"></select>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-item active" onclick="showModule('salary')" id="nav-salary">
+      <span class="nav-icon">💰</span> 薪資管理
+    </div>
+    <div class="nav-item" onclick="showModule('payments')" id="nav-payments">
+      <span class="nav-icon">🧾</span> 代墊 / 廠商貨款
+    </div>
+    <div class="nav-item" onclick="showModule('analysis')" id="nav-analysis">
+      <span class="nav-icon">📈</span> 業績分析
+    </div>
+    <div class="nav-item" onclick="showModule('report')" id="nav-report">
+      <span class="nav-icon">📄</span> 股東報告
+    </div>
+    <div class="nav-item" onclick="showSettings()" id="nav-settings" style="margin-top:auto;">
+      <span class="nav-icon">⚙️</span> Google Sheets 設定
+    </div>
+  </nav>
+  <div class="sidebar-footer">
+    <div class="venue">
+      漢口街二段71號1樓<br>
+      @drunk_shelter_hankou<br>
+      02-2331-0178
+    </div>
+  </div>
+</aside>
+
+<!-- ─── MAIN CONTENT ─────────────────────────────────── -->
+<main class="main">
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MODULE 1: 薪資管理                                  -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="module active" id="module-salary">
+  <div class="page-header">
+    <div>
+      <div class="page-title">薪資管理 <span id="salaryMonthLabel"></span></div>
+      <div class="page-subtitle">SALARY & BONUS MANAGEMENT</div>
+    </div>
+    <button class="btn btn-gold" onclick="exportSalaryReport()">⬇ 匯出薪資表</button>
+  </div>
+
+  <!-- 獎金設定 -->
+  <div class="config-section" id="bonusConfigSection">
+    <div class="config-title">⚙️ 獎金計算設定（可調整）</div>
+    <div class="two-col">
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:0.08em;text-transform:uppercase;">業績門檻</div>
+        <div class="bonus-tier">
+          <span class="tier-label">週五 / 週六</span>
+          <input class="tier-input" type="number" id="th-fri" value="42000">
+          <span class="tier-pct">元</span>
+        </div>
+        <div class="bonus-tier">
+          <span class="tier-label">週四</span>
+          <input class="tier-input" type="number" id="th-thu" value="24000">
+          <span class="tier-pct">元</span>
+        </div>
+        <div class="bonus-tier">
+          <span class="tier-label">週一 ～ 三 / 週日</span>
+          <input class="tier-input" type="number" id="th-other" value="22000">
+          <span class="tier-pct">元</span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;letter-spacing:0.08em;text-transform:uppercase;">階梯抽成比例</div>
+        <div class="bonus-tier">
+          <span class="tier-label">第一階 (0～10,000)</span>
+          <input class="tier-input" type="number" id="pct1" value="6" min="0" max="100">
+          <span class="tier-pct">%</span>
+        </div>
+        <div class="bonus-tier">
+          <span class="tier-label">第二階 (10,001～20,000)</span>
+          <input class="tier-input" type="number" id="pct2" value="10" min="0" max="100">
+          <span class="tier-pct">%</span>
+        </div>
+        <div class="bonus-tier">
+          <span class="tier-label">第三階 (20,001+)</span>
+          <input class="tier-input" type="number" id="pct3" value="15" min="0" max="100">
+          <span class="tier-pct">%</span>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:12px;text-align:right;">
+      <button class="btn btn-gold btn-sm" onclick="saveBonusConfig()">✓ 儲存設定</button>
+    </div>
+  </div>
+
+  <!-- 月薪資總覽 -->
+  <div id="salaryKpis" class="kpi-grid"></div>
+
+  <!-- 員工卡片 -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">👥 員工薪資明細</div>
+      <button class="btn btn-outline btn-sm" onclick="addEmployee()">+ 新增員工</button>
+    </div>
+    <div class="panel-body">
+      <div class="emp-grid" id="empGrid"></div>
+    </div>
+  </div>
+
+  <!-- 明細表格 -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">📋 薪資匯總表</div>
+    </div>
+    <div class="panel-body">
+      <div class="tbl-wrap">
+        <table id="salaryTable">
+          <thead>
+            <tr>
+              <th>姓名</th>
+              <th>類型</th>
+              <th class="td-right">時薪</th>
+              <th class="td-right">累計工時</th>
+              <th class="td-right">工時薪資</th>
+              <th class="td-right">月獎金</th>
+              <th class="td-right">底薪</th>
+              <th class="td-right">月薪合計</th>
+              <th>備注</th>
+            </tr>
+          </thead>
+          <tbody id="salaryTableBody"></tbody>
+          <tfoot>
+            <tr class="tbl-total" id="salaryTableFoot"></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 獎金發放紀錄 -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">🏅 本月獎金發放紀錄</div>
+    </div>
+    <div class="panel-body">
+      <div class="tbl-wrap">
+        <table id="bonusLogTable">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>星期</th>
+              <th class="td-right">營業額</th>
+              <th class="td-right">超額業績</th>
+              <th class="td-right">獎金池</th>
+              <th>分配明細</th>
+            </tr>
+          </thead>
+          <tbody id="bonusLogBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <!-- 正職季獎金計算機 -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">🏅 正職員工季獎金計算機</div>
+      <span class="chip chip-gold">YoY 成長提撥制</span>
+    </div>
+    <div class="panel-body">
+
+      <!-- 說明 -->
+      <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap;">
+        <div class="config-section" style="flex:1;min-width:200px;margin-bottom:0;">
+          <div class="config-title">📅 節日基本獎金（每人）</div>
+          <div style="display:flex;gap:20px;flex-wrap:wrap;">
+            <div class="emp-stat-row" style="flex-direction:column;gap:3px;align-items:flex-start;">
+              <span class="emp-stat-label">端午</span>
+              <input type="number" id="hb-duanwu" value="3000" style="width:90px;" oninput="calcFTBonus()">
+            </div>
+            <div class="emp-stat-row" style="flex-direction:column;gap:3px;align-items:flex-start;">
+              <span class="emp-stat-label">中秋</span>
+              <input type="number" id="hb-midautumn" value="3000" style="width:90px;" oninput="calcFTBonus()">
+            </div>
+            <div class="emp-stat-row" style="flex-direction:column;gap:3px;align-items:flex-start;">
+              <span class="emp-stat-label">年終（共）</span>
+              <input type="number" id="hb-yearend" value="5000" style="width:90px;" oninput="calcFTBonus()">
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:10px;">＊年終獎金除以2分給兩位正職</div>
+        </div>
+        <div class="config-section" style="flex:1;min-width:200px;margin-bottom:0;">
+          <div class="config-title">📈 業績成長提撥率</div>
+          <div class="bonus-tier" style="margin-bottom:8px;">
+            <span class="tier-label">YoY 成長 1–5%</span>
+            <input class="tier-input" type="number" id="yoy-low" value="3" min="0" max="100" oninput="calcFTBonus()">
+            <span class="tier-pct">% 提撥</span>
+          </div>
+          <div class="bonus-tier" style="margin-bottom:0;">
+            <span class="tier-label">YoY 成長 6% 以上</span>
+            <input class="tier-input" type="number" id="yoy-high" value="5" min="0" max="100" oninput="calcFTBonus()">
+            <span class="tier-pct">% 提撥</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 輸入區 -->
+      <div class="two-col" style="margin-bottom:20px;">
+        <div>
+          <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;">本期資料</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>季度</label>
+              <select id="ft-quarter" onchange="calcFTBonus()">
+                <option value="Q1">Q1（1–3月）</option>
+                <option value="Q2">Q2（4–6月）</option>
+                <option value="Q3" selected>Q3（7–9月）</option>
+                <option value="Q4">Q4（10–12月）</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>年份</label>
+              <select id="ft-year" onchange="updateFTYearOptions()">
+                <option value="2025" selected>2025</option>
+                <option value="2026">2026</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>本期季平均營收（NT$）</label>
+              <input type="number" id="ft-cur-rev" placeholder="例：900110" value="900110" oninput="calcFTBonus()">
+            </div>
+            <div class="form-group">
+              <label>去年同季平均營收（NT$）</label>
+              <input type="number" id="ft-prev-rev" placeholder="例：944964" value="944964" oninput="calcFTBonus()">
+            </div>
+          </div>
+        </div>
+
+        <!-- 即時計算結果 -->
+        <div>
+          <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;">計算結果</div>
+          <div id="ftBonusResult" style="background:var(--card);border-radius:8px;padding:18px;border:1px solid var(--border);">
+            <div style="text-align:center;color:var(--muted);font-size:13px;">輸入數值後自動計算</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 歷史季獎金紀錄 -->
+      <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;">歷史紀錄</div>
+      <div style="display:flex;gap:10px;margin-bottom:14px;align-items:center;flex-wrap:wrap;">
+        <input id="ft-save-note" placeholder="備注（如：2025Q1 確認發放）" style="flex:1;min-width:200px;">
+        <button class="btn btn-gold btn-sm" onclick="saveFTBonusRecord()">＋ 存入紀錄</button>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>季度</th>
+              <th class="td-right">本期平均營收</th>
+              <th class="td-right">去年同期</th>
+              <th class="td-right">YoY 成長</th>
+              <th class="td-right">提撥率</th>
+              <th class="td-right">月提撥</th>
+              <th class="td-right">季獎金池</th>
+              <th class="td-right">每人季獎金</th>
+              <th>備注</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="ftBonusHistoryBody"></tbody>
+        </table>
+      </div>
+
+      <!-- 年終試算 -->
+      <div class="divider"></div>
+      <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;">📊 年終獎金試算（依紀錄自動加總）</div>
+      <div id="ftYearEndSummary" style="background:var(--card);border-radius:8px;padding:18px;border:1px solid rgba(200,144,58,0.3);"></div>
+
+    </div>
+  </div>
+
+</div><!-- /module-salary -->
+
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MODULE 2: 代墊款 / 廠商貨款                         -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="module" id="module-payments">
+  <div class="page-header">
+    <div>
+      <div class="page-title">代墊款 <span>/ 廠商貨款</span></div>
+      <div class="page-subtitle">ADVANCES & VENDOR PAYMENTS</div>
+    </div>
+  </div>
+
+  <div id="paymentsKpis" class="kpi-grid"></div>
+
+  <div class="two-col">
+
+    <!-- 代墊款 -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">💳 代墊款紀錄</div>
+        <span class="chip chip-blue" id="advanceCount">0 筆</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>代墊人</label>
+            <input id="adv-name" placeholder="Debby / Pino...">
+          </div>
+          <div class="form-group">
+            <label>金額</label>
+            <input id="adv-amount" type="number" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>說明</label>
+            <input id="adv-note" placeholder="冷氣清洗...">
+          </div>
+          <div class="form-group" style="max-width:140px;">
+            <label>日期</label>
+            <input id="adv-date" type="date">
+          </div>
+          <button class="btn btn-gold" onclick="addAdvance()">新增</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>日期</th><th>代墊人</th><th>說明</th><th class="td-right">金額</th><th></th></tr>
+            </thead>
+            <tbody id="advanceTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 廠商貨款 -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">🏭 廠商貨款紀錄</div>
+        <span class="chip chip-gold" id="vendorCount">0 筆</span>
+      </div>
+      <div class="panel-body">
+        <div class="form-row">
+          <div class="form-group">
+            <label>廠商名稱</label>
+            <input id="vnd-vendor" placeholder="酒商 / 食材...">
+          </div>
+          <div class="form-group">
+            <label>類別</label>
+            <select id="vnd-cat">
+              <option value="alcohol">酒水</option>
+              <option value="food">食材</option>
+              <option value="supplies">耗材</option>
+              <option value="equipment">設備</option>
+              <option value="maintenance">維修</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>金額</label>
+            <input id="vnd-amount" type="number" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>備注</label>
+            <input id="vnd-note" placeholder="本月進貨...">
+          </div>
+          <div class="form-group" style="max-width:140px;">
+            <label>日期</label>
+            <input id="vnd-date" type="date">
+          </div>
+          <button class="btn btn-gold" onclick="addVendor()">新增</button>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr><th>日期</th><th>廠商</th><th>類別</th><th>備注</th><th class="td-right">金額</th><th></th></tr>
+            </thead>
+            <tbody id="vendorTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /two-col -->
+
+  <!-- 支出匯總 -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">📊 廠商貨款分類統計</div>
+    </div>
+    <div class="panel-body">
+      <div class="two-col">
+        <div class="chart-wrap">
+          <canvas id="vendorCatChart"></canvas>
+        </div>
+        <div id="vendorCatBreakdown"></div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /module-payments -->
+
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MODULE 3: 業績分析                                  -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="module" id="module-analysis">
+  <div class="page-header">
+    <div>
+      <div class="page-title">業績分析 <span id="analysisMonthLabel"></span></div>
+      <div class="page-subtitle">PERFORMANCE ANALYSIS</div>
+    </div>
+  </div>
+
+  <div id="analysisKpis" class="kpi-grid"></div>
+
+  <div class="two-col">
+    <!-- 日收趨勢 -->
+    <div class="panel" style="grid-column: 1 / -1;">
+      <div class="panel-header"><div class="panel-title">📉 每日營收走勢</div></div>
+      <div class="panel-body">
+        <div class="chart-wrap-lg"><canvas id="dailyRevenueChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 星期平均 -->
+    <div class="panel">
+      <div class="panel-header"><div class="panel-title">📅 星期平均業績</div></div>
+      <div class="panel-body">
+        <div class="chart-wrap"><canvas id="dowChart"></canvas></div>
+      </div>
+    </div>
+
+    <!-- 支出佔比 -->
+    <div class="panel">
+      <div class="panel-header"><div class="panel-title">🥧 支出結構</div></div>
+      <div class="panel-body">
+        <div class="chart-wrap"><canvas id="expenseChart"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 排行 -->
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-header"><div class="panel-title">🏆 業績排行（前5）</div></div>
+      <div class="panel-body">
+        <div class="tbl-wrap">
+          <table id="topDaysTable">
+            <thead><tr><th>排名</th><th>日期</th><th>星期</th><th class="td-right">營業額</th><th class="td-right">獎金池</th></tr></thead>
+            <tbody id="topDaysBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header"><div class="panel-title">📉 業績墊底（後5）</div></div>
+      <div class="panel-body">
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>排名</th><th>日期</th><th>星期</th><th class="td-right">營業額</th><th class="td-right">達標</th></tr></thead>
+            <tbody id="botDaysBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 月份比較 -->
+  <div class="panel">
+    <div class="panel-header"><div class="panel-title">🔄 月份比較</div></div>
+    <div class="panel-body">
+      <div class="chart-wrap"><canvas id="monthCompChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- 洞察 -->
+  <div class="panel">
+    <div class="panel-header"><div class="panel-title">💡 業績洞察</div></div>
+    <div class="panel-body">
+      <div class="insights-list" id="insightsList"></div>
+    </div>
+  </div>
+
+</div><!-- /module-analysis -->
+
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MODULE 4: 股東報告                                  -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="module" id="module-report">
+  <div class="page-header">
+    <div>
+      <div class="page-title">股東報告</div>
+      <div class="page-subtitle">SHAREHOLDER REPORT</div>
+    </div>
+  </div>
+
+  <div class="report-toolbar no-print">
+    <div class="form-group" style="flex:0;min-width:140px;">
+      <label>報告類型</label>
+      <select id="reportType" onchange="generateReport()">
+        <option value="monthly">月報</option>
+        <option value="quarterly">季報</option>
+      </select>
+    </div>
+    <div class="form-group" style="flex:0;min-width:140px;" id="quarterSelectWrap">
+      <label>季度</label>
+      <select id="quarterSelect" onchange="generateReport()">
+        <option value="Q1">Q1（1–3月）</option>
+        <option value="Q2">Q2（4–6月）</option>
+        <option value="Q3">Q3（7–9月）</option>
+        <option value="Q4">Q4（10–12月）</option>
+      </select>
+    </div>
+    <button class="btn btn-gold" onclick="window.print()">🖨 列印 / 匯出PDF</button>
+    <button class="btn btn-outline" onclick="generateReport()">↻ 重新整理</button>
+  </div>
+
+  <div class="report-container" id="reportContainer">
+    <div class="report-header">
+      <div class="report-brand">DRUNK SHELTER HANKOU</div>
+      <div class="report-period-label">REPORT PERIOD</div>
+      <div class="report-period" id="reportPeriodLabel">2026 年 3 月報</div>
+      <div style="margin-top:12px;font-size:11px;color:var(--muted);font-family:'Space Mono',monospace;">
+        產生時間：<span id="reportGenTime"></span>
+      </div>
+    </div>
+    <div class="report-body">
+
+      <!-- KPI -->
+      <div class="report-section">
+        <div class="report-section-title">📊 核心指標</div>
+        <div class="report-kpi-grid" id="reportKpis"></div>
+      </div>
+
+      <!-- 收支瀑布 -->
+      <div class="report-section">
+        <div class="report-section-title">💧 收支結構</div>
+        <div class="two-col">
+          <div>
+            <div class="waterfall" id="reportWaterfall"></div>
+          </div>
+          <div class="chart-wrap-sm">
+            <canvas id="reportExpenseChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 業績走勢 -->
+      <div class="report-section">
+        <div class="report-section-title">📈 營收走勢</div>
+        <div class="chart-wrap"><canvas id="reportRevenueChart"></canvas></div>
+      </div>
+
+      <!-- 薪資人事 -->
+      <div class="report-section">
+        <div class="report-section-title">👥 人事費用</div>
+        <div id="reportStaffTable"></div>
+      </div>
+
+      <!-- 代墊 / 廠商 -->
+      <div class="report-section">
+        <div class="report-section-title">🧾 代墊款 / 廠商貨款</div>
+        <div class="two-col" id="reportPayments"></div>
+      </div>
+
+      <!-- 附注 -->
+      <div class="report-section" style="margin-bottom:0;">
+        <div class="report-section-title">📝 本月備注</div>
+        <textarea id="reportNote" rows="3" style="width:100%;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:12px;font-family:'Noto Sans TC',sans-serif;font-size:13px;line-height:1.7;resize:vertical;" placeholder="在此輸入本月備注或說明...（此欄不影響數字）"></textarea>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /module-report -->
+
+</main><!-- /main -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ─────────────────────────────────────────────────────
+// DATA & STATE
+// ─────────────────────────────────────────────────────
+const STORAGE_KEY = 'dsBarManager';
+let GS_URL = localStorage.getItem('dsBarManager_gsUrl') || '';
+let currentMonth = '2026-03';
+let allData = {};
+let bonusConfig = {
+  thresholds: { fri: 42000, thu: 24000, other: 22000 },
+  tiers: [{ max: 10000, pct: 6 }, { max: 20000, pct: 10 }, { max: Infinity, pct: 15 }]
+};
+let staffConfig = [];
+let ftBonusHistory = [];
+let charts = {};
+
+const CAT_LABELS = {
+  alcohol:'酒水', food:'食材', supplies:'耗材',
+  equipment:'設備', maintenance:'維修', other:'其他'
+};
+const CAT_COLORS = {
+  alcohol:'#C8903A', food:'#56C97B', supplies:'#6AABF7',
+  equipment:'#B48EF0', maintenance:'#FF3C6E', other:'#88785A'
+};
+const DOW_LABELS = ['週日','週一','週二','週三','週四','週五','週六'];
+const DOW_MAP = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+const DOW_COLORS = ['#C8903A','#5592E0','#5592E0','#5592E0','#5592E0','#9B72CF','#9B72CF'];
+
+// ─────────────────────────────────────────────────────
+// SEED DATA
+// ─────────────────────────────────────────────────────
+function seedData() {
+  const realEntries = [
+    {
+        "date": "2026-03-01",
+        "dayName": "Sat",
+        "revenue": 58337,
+        "misc": 0,
+        "drinks": 0,
+        "singer": 1800,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Wei",
+                "hourly": 225,
+                "hours": 5.5,
+                "bonus": 503
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 731
+            }
+        ]
+    },
+    {
+        "date": "2026-03-02",
+        "dayName": "Sun",
+        "revenue": 25593,
+        "misc": 1020,
+        "drinks": 0,
+        "singer": 1500,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "開元1020",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "芷柔",
+                "hourly": 200,
+                "hours": 7,
+                "bonus": 101
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 115
+            }
+        ]
+    },
+    {
+        "date": "2026-03-03",
+        "dayName": "Mon",
+        "revenue": 22354,
+        "misc": 2050,
+        "drinks": 0,
+        "singer": 2100,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "薯條1390 乾冰660",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "柏玄",
+                "hourly": 200,
+                "hours": 7,
+                "bonus": 10
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 11
+            }
+        ]
+    },
+    {
+        "date": "2026-03-04",
+        "dayName": "Tue",
+        "revenue": 28956,
+        "misc": 400,
+        "drinks": 0,
+        "singer": 2100,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "鋼琴椅400",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Nick",
+                "hourly": 200,
+                "hours": 7,
+                "bonus": 195
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 222
+            }
+        ]
+    },
+    {
+        "date": "2026-03-05",
+        "dayName": "Wed",
+        "revenue": 22792,
+        "misc": 5656,
+        "drinks": 0,
+        "singer": 2400,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "黃湯杯子點心碟1551 檸檬汁2220 沙拉油便條紙水煙刷裝飾小花1885",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Nick",
+                "hourly": 200,
+                "hours": 7,
+                "bonus": 17
+            },
+            {
+                "name": "Miao",
+                "hourly": 200,
+                "hours": 5,
+                "bonus": 12
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 19
+            }
+        ]
+    },
+    {
+        "date": "2026-03-06",
+        "dayName": "Thu",
+        "revenue": 48112,
+        "misc": 92,
+        "drinks": 0,
+        "singer": 2700,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "牛奶92",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Wei",
+                "hourly": 225,
+                "hours": 7.5,
+                "bonus": 583
+            },
+            {
+                "name": "Echo",
+                "hourly": 200,
+                "hours": 7.5,
+                "bonus": 583
+            },
+            {
+                "name": "柏玄",
+                "hourly": 200,
+                "hours": 5.5,
+                "bonus": 428
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 623
+            }
+        ]
+    },
+    {
+        "date": "2026-03-07",
+        "dayName": "Fri",
+        "revenue": 69087,
+        "misc": 584,
+        "drinks": 0,
+        "singer": 3000,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "拉拉137 水果447",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Echo",
+                "hourly": 200,
+                "hours": 6.5,
+                "bonus": 629
+            },
+            {
+                "name": "柏玄",
+                "hourly": 200,
+                "hours": 7.5,
+                "bonus": 726
+            },
+            {
+                "name": "小葉",
+                "hourly": 200,
+                "hours": 5.5,
+                "bonus": 533
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 775
+            }
+        ]
+    },
+    {
+        "date": "2026-03-08",
+        "dayName": "Sat",
+        "revenue": 37907,
+        "misc": 0,
+        "drinks": 0,
+        "singer": 1500,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "柏玄",
+                "hourly": 200,
+                "hours": 5,
+                "bonus": 0
+            },
+            {
+                "name": "小葉",
+                "hourly": 200,
+                "hours": 7,
+                "bonus": 0
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 0
+            }
+        ]
+    },
+    {
+        "date": "2026-03-09",
+        "dayName": "Sun",
+        "revenue": 38555,
+        "misc": 0,
+        "drinks": 0,
+        "singer": 2400,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "小葉",
+                "hourly": 200,
+                "hours": 7.5,
+                "bonus": 608
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 648
+            }
+        ]
+    },
+    {
+        "date": "2026-03-10",
+        "dayName": "Mon",
+        "revenue": 21241,
+        "misc": 0,
+        "drinks": 0,
+        "singer": 1200,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "柏玄",
+                "hourly": 200,
+                "hours": 6.5,
+                "bonus": 0
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 0
+            }
+        ]
+    },
+    {
+        "date": "2026-03-11",
+        "dayName": "Tue",
+        "revenue": 20339,
+        "misc": 1335,
+        "drinks": 0,
+        "singer": 2100,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "乾冰660 蛋白粉675",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Miao",
+                "hourly": 200,
+                "hours": 6,
+                "bonus": 0
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 0
+            }
+        ]
+    },
+    {
+        "date": "2026-03-12",
+        "dayName": "Wed",
+        "revenue": 25953,
+        "misc": 4000,
+        "drinks": 0,
+        "singer": 2100,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "薯條639 水果奶酒大耳朵餅乾1366 包裹1995",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Miao",
+                "hourly": 200,
+                "hours": 5,
+                "bonus": 59
+            },
+            {
+                "name": "Nick",
+                "hourly": 200,
+                "hours": 7,
+                "bonus": 83
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 95
+            }
+        ]
+    },
+    {
+        "date": "2026-03-13",
+        "dayName": "Thu",
+        "revenue": 44345,
+        "misc": 3025,
+        "drinks": 0,
+        "singer": 2100,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "薯條1390 開元1635",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Echo",
+                "hourly": 200,
+                "hours": 5.5,
+                "bonus": 387
+            },
+            {
+                "name": "妃妃",
+                "hourly": 200,
+                "hours": 8,
+                "bonus": 562
+            },
+            {
+                "name": "Debby",
+                "hourly": 0,
+                "hours": 2,
+                "bonus": 141
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 562
+            }
+        ]
+    },
+    {
+        "date": "2026-03-14",
+        "dayName": "Fri",
+        "revenue": 55673,
+        "misc": 89,
+        "drinks": 0,
+        "singer": 3300,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "蘋果醋89",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Echo",
+                "hourly": 200,
+                "hours": 6.5,
+                "bonus": 322
+            },
+            {
+                "name": "柏玄",
+                "hourly": 200,
+                "hours": 5,
+                "bonus": 248
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 397
+            }
+        ]
+    },
+    {
+        "date": "2026-03-15",
+        "dayName": "Sat",
+        "revenue": 31245,
+        "misc": 30,
+        "drinks": 0,
+        "singer": 2250,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "芭樂汁30",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "小葉",
+                "hourly": 200,
+                "hours": 5,
+                "bonus": 0
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 0
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 0
+            }
+        ]
+    },
+    {
+        "date": "2026-03-16",
+        "dayName": "Sun",
+        "revenue": 35168,
+        "misc": 0,
+        "drinks": 0,
+        "singer": 2550,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 458
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 459
+            }
+        ]
+    },
+    {
+        "date": "2026-03-17",
+        "dayName": "Mon",
+        "revenue": 34447,
+        "misc": 455,
+        "drinks": 0,
+        "singer": 3000,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "紅酒455",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 422
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 423
+            }
+        ]
+    },
+    {
+        "date": "2026-03-18",
+        "dayName": "Tue",
+        "revenue": 30229,
+        "misc": 660,
+        "drinks": 0,
+        "singer": 2550,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "乾冰660",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Miao",
+                "hourly": 200,
+                "hours": 7,
+                "bonus": 231
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 263
+            }
+        ]
+    },
+    {
+        "date": "2026-03-19",
+        "dayName": "Wed",
+        "revenue": 46332,
+        "misc": 2378,
+        "drinks": 0,
+        "singer": 2700,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "便利貼筆蠟燭漏斗778 青草茶麥茶1600",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "柏玄",
+                "hourly": 200,
+                "hours": 5,
+                "bonus": 536
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 857
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 857
+            }
+        ]
+    },
+    {
+        "date": "2026-03-20",
+        "dayName": "Thu",
+        "revenue": 59415,
+        "misc": 2112,
+        "drinks": 0,
+        "singer": 3600,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "水煙用具2112",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Echo",
+                "hourly": 200,
+                "hours": 5,
+                "bonus": 752
+            },
+            {
+                "name": "柏玄",
+                "hourly": 200,
+                "hours": 5,
+                "bonus": 752
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 1204
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 1204
+            }
+        ]
+    },
+    {
+        "date": "2026-03-21",
+        "dayName": "Fri",
+        "revenue": 50082,
+        "misc": 1888,
+        "drinks": 0,
+        "singer": 2700,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "小花迷迭香薄荷1250 水果638 ※文哥的酒11400另記廠商",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Wei",
+                "hourly": 225,
+                "hours": 7.5,
+                "bonus": 177
+            },
+            {
+                "name": "Echo",
+                "hourly": 200,
+                "hours": 5,
+                "bonus": 118
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 190
+            }
+        ]
+    },
+    {
+        "date": "2026-03-22",
+        "dayName": "Sat",
+        "revenue": 17291,
+        "misc": 592,
+        "drinks": 0,
+        "singer": 1800,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "薯條花生592",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "柏玄",
+                "hourly": 200,
+                "hours": 4.5,
+                "bonus": 0
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 0
+            }
+        ]
+    },
+    {
+        "date": "2026-03-23",
+        "dayName": "Sun",
+        "revenue": 10986,
+        "misc": 0,
+        "drinks": 0,
+        "singer": 2100,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 0
+            },
+            {
+                "name": "小葉",
+                "hourly": 200,
+                "hours": 6,
+                "bonus": 0
+            }
+        ]
+    },
+    {
+        "date": "2026-03-24",
+        "dayName": "Mon",
+        "revenue": 21403,
+        "misc": 2638,
+        "drinks": 0,
+        "singer": 2100,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "薯條鳳爪2638",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "柏玄",
+                "hourly": 200,
+                "hours": 7.5,
+                "bonus": 0
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 0
+            }
+        ]
+    },
+    {
+        "date": "2026-03-25",
+        "dayName": "Tue",
+        "revenue": 36835,
+        "misc": 2035,
+        "drinks": 0,
+        "singer": 3000,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "開元1375 乾冰660",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Miao",
+                "hourly": 200,
+                "hours": 8,
+                "bonus": 542
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 542
+            }
+        ]
+    },
+    {
+        "date": "2026-03-26",
+        "dayName": "Wed",
+        "revenue": 63447,
+        "misc": 3874,
+        "drinks": 0,
+        "singer": 2400,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "檸檬汁2220 花生1260 醬料碟手套394",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Miao",
+                "hourly": 200,
+                "hours": 7,
+                "bonus": 1686
+            },
+            {
+                "name": "Nick",
+                "hourly": 200,
+                "hours": 5,
+                "bonus": 1204
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 1927
+            }
+        ]
+    },
+    {
+        "date": "2026-03-27",
+        "dayName": "Thu",
+        "revenue": 54620,
+        "misc": 650,
+        "drinks": 0,
+        "singer": 3300,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "裝飾小花650",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Debby",
+                "hourly": 0,
+                "hours": 6,
+                "bonus": 891
+            },
+            {
+                "name": "Echo",
+                "hourly": 200,
+                "hours": 7.5,
+                "bonus": 1114
+            },
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 1188
+            }
+        ]
+    },
+    {
+        "date": "2026-03-28",
+        "dayName": "Fri",
+        "revenue": 52388,
+        "misc": 0,
+        "drinks": 0,
+        "singer": 3600,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Hsu",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 179
+            },
+            {
+                "name": "Echo",
+                "hourly": 200,
+                "hours": 6,
+                "bonus": 135
+            },
+            {
+                "name": "妃妃",
+                "hourly": 200,
+                "hours": 6,
+                "bonus": 135
+            },
+            {
+                "name": "Debby",
+                "hourly": 0,
+                "hours": 8.5,
+                "bonus": 190
+            }
+        ]
+    },
+    {
+        "date": "2026-03-29",
+        "dayName": "Sat",
+        "revenue": 15554,
+        "misc": 386,
+        "drinks": 0,
+        "singer": 1500,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "膠帶386",
+        "closed": false,
+        "ptShifts": [
+            {
+                "name": "Echo",
+                "hourly": 200,
+                "hours": 4.5,
+                "bonus": 0
+            },
+            {
+                "name": "柏玄",
+                "hourly": 200,
+                "hours": 7,
+                "bonus": 0
+            },
+            {
+                "name": "Pino",
+                "hourly": 0,
+                "hours": 8,
+                "bonus": 0
+            }
+        ]
+    }
+];
+
+  const seedVendors = [
+    {
+        "vendor": "文哥",
+        "cat": "alcohol",
+        "amount": 11400,
+        "note": "文哥的酒"
+    }
+];
+
+  allData['2026-03'] = {
+    entries:        realEntries,
+    fixedItems:     [],
+    advances:       [],
+    vendorPayments: seedVendors,
+    bonusLog:       [],
+    ptStaff: [
+      { name:'Wei',  hourly:225, hours:0, bonus:0, salary:0 },
+      { name:'芷柔', hourly:200, hours:0, bonus:0, salary:0 },
+      { name:'柏玄', hourly:200, hours:0, bonus:0, salary:0 },
+      { name:'Nick', hourly:200, hours:0, bonus:0, salary:0 },
+      { name:'Miao', hourly:200, hours:0, bonus:0, salary:0 },
+      { name:'Echo', hourly:200, hours:0, bonus:0, salary:0 },
+      { name:'小葉', hourly:200, hours:0, bonus:0, salary:0 },
+      { name:'妃妃', hourly:200, hours:0, bonus:0, salary:0 },
+      { name:'Debby', hourly:0,   hours:0, bonus:0, salary:0 },
+    ],
+    ftStaff: [
+      { name:'Pino', salary:45000, bonus:0 },
+      { name:'Hsu',  salary:42000, bonus:0 },
+    ]
+  };
+
+  ftBonusHistory = [
+    { quarter:'2024-Q4', curRev:944964, prevRev:null, yoyPct:null, pct:null, monthly:null, pool:null, perPerson:null, note:'2024Q4 基準期（無去年同期）', hb:{ duanwu:0, midautumn:0, yearend:5000 } },
+    { quarter:'2025-Q1', curRev:900110, prevRev:944964, yoyPct:41.83, pct:5, monthly:18826, pool:56478, perPerson:9413, note:'2025Q1 確認，YoY +41.83%', hb:{ duanwu:0, midautumn:0, yearend:0 } },
+  ];
+  saveFTHistory();
+  saveAll();
+}
+
+// ─────────────────────────────────────────────────────
+// STORAGE
+// ─────────────────────────────────────────────────────
+let _syncTimer = null;
+
+function saveAll() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '7', data: allData, bonusConfig, staffConfig }));
+  // Auto-sync to Google Sheets (debounced 800ms)
+  if (GS_URL) {
+    clearTimeout(_syncTimer);
+    setSyncStatus('⟳ 同步中...', 'var(--gold)');
+    _syncTimer = setTimeout(() => syncMonthToSheets(currentMonth), 800);
+  }
+}
+function saveFTHistory() {
+  localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
+}
+function loadAll() {
+  const DATA_VERSION = '7';
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (raw) {
+    const parsed = JSON.parse(raw);
+    if (parsed.version === DATA_VERSION) {
+      // Same version: load from localStorage (user's live data)
+      allData = parsed.data || {};
+      if (parsed.bonusConfig) bonusConfig = parsed.bonusConfig;
+      if (parsed.staffConfig) staffConfig = parsed.staffConfig;
+    } else {
+      // Version mismatch: preserve user settings, re-seed real data
+      if (parsed.bonusConfig) bonusConfig = parsed.bonusConfig;
+      if (parsed.staffConfig) staffConfig = parsed.staffConfig;
+      seedData();  // loads hardcoded real entries
+    }
+  }
+  const ftRaw = localStorage.getItem(STORAGE_KEY + '_ftBonus');
+  if (ftRaw) ftBonusHistory = JSON.parse(ftRaw);
+  if (Object.keys(allData).length === 0) seedData();
+  if (ftBonusHistory.length === 0) seedFTHistory();
+  if (typeof setSyncStatus === 'function' && GS_URL) setSyncStatus('🔗 Sheets 已連線', 'var(--muted)');
+}
+function seedFTHistory() {
+  ftBonusHistory = [
+    { quarter:'2024-Q4', curRev:944964, prevRev:null, yoyPct:null, pct:null, monthly:null, pool:null, perPerson:null, note:'2024Q4 基準期（無去年同期）', hb:{ duanwu:0, midautumn:0, yearend:5000 } },
+    { quarter:'2025-Q1', curRev:900110, prevRev:944964, yoyPct:41.83, pct:5, monthly:18826, pool:56478, perPerson:9413, note:'2025Q1 確認，YoY +41.83%', hb:{ duanwu:0, midautumn:0, yearend:0 } },
+  ];
+  saveFTHistory();
+}
+
+function getMonthData(key) {
+  if (!allData[key]) allData[key] = { entries:[], fixedItems:[], advances:[], vendorPayments:[], bonusLog:[], ptStaff:[], ftStaff:[] };
+  if (!allData[key].vendorPayments) allData[key].vendorPayments = [];
+  return allData[key];
+}
+
+// ─────────────────────────────────────────────────────
+// CALCULATIONS
+// ─────────────────────────────────────────────────────
+function calcMonthStats(key) {
+  const d = getMonthData(key);
+  const active = d.entries.filter(e => !e.closed);
+  const totalRevenue = active.reduce((s,e) => s + (e.revenue||0) + (e.extraIncome||0), 0);
+  const totalMisc = active.reduce((s,e) => s + (e.misc||0) + (e.drinks||0) + (e.singer||0) + (e.singerTip||0), 0);
+  const fixedTotal = d.fixedItems.filter(f => !['prevBalance','cashFloat'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
+  const advancesTotal = d.advances.reduce((s,a) => s+a.amount, 0);
+  const vendorTotal = (d.vendorPayments||[]).reduce((s,v) => s+v.amount, 0);
+
+  // PT salary from ptShifts
+  const ptMap = {};
+  active.forEach(e => {
+    (e.ptShifts||[]).forEach(s => {
+      if (!ptMap[s.name]) ptMap[s.name] = { hours:0, bonus:0, hourly:s.hourly };
+      ptMap[s.name].hours += s.hours||0;
+      ptMap[s.name].bonus += s.bonus||0;
+    });
+  });
+
+  let ptSalary = 0;
+  Object.entries(ptMap).forEach(([name, v]) => {
+    if (v.hourly > 0) ptSalary += v.hourly * v.hours + v.bonus;
+  });
+
+  // FT salary + bonuses
+  let ftSalary = 0;
+  d.ftStaff.forEach(ft => {
+    const ftBonus = active.reduce((s,e) => {
+      const sh = (e.ptShifts||[]).find(p => p.name === ft.name);
+      return s + (sh ? sh.bonus||0 : 0);
+    }, 0);
+    ftSalary += (ft.salary||0) + ftBonus;
+  });
+
+  const totalLabor = ptSalary + ftSalary;
+  const totalExpense = totalMisc + totalLabor + fixedTotal + advancesTotal + vendorTotal;
+  const netProfit = totalRevenue - totalExpense;
+  const profitRate = totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0;
+
+  return { totalRevenue, totalMisc, fixedTotal, advancesTotal, vendorTotal, ptSalary, ftSalary, totalLabor, totalExpense, netProfit, profitRate, ptMap, active };
+}
+
+function calcPtMonthly(key) {
+  const d = getMonthData(key);
+  const active = d.entries.filter(e => !e.closed);
+  const map = {};
+  active.forEach(e => {
+    (e.ptShifts||[]).forEach(s => {
+      if (!map[s.name]) map[s.name] = { name:s.name, hourly:s.hourly, hours:0, bonus:0, days:0 };
+      map[s.name].hours += s.hours||0;
+      map[s.name].bonus += s.bonus||0;
+      map[s.name].days += 1;
+      if (s.hourly > 0) map[s.name].hourly = s.hourly;
+    });
+  });
+  return map;
+}
+
+function fmt(n) {
+  return 'NT$' + Math.round(n).toLocaleString('zh-TW');
+}
+function fmtRaw(n) {
+  return Math.round(n).toLocaleString('zh-TW');
+}
+
+// ─────────────────────────────────────────────────────
+// MODULE 1: SALARY
+// ─────────────────────────────────────────────────────
+function renderSalary() {
+  const d = getMonthData(currentMonth);
+  const stats = calcMonthStats(currentMonth);
+  const ptMap = calcPtMonthly(currentMonth);
+
+  document.getElementById('salaryMonthLabel').textContent = currentMonth;
+
+  // KPIs
+  document.getElementById('salaryKpis').innerHTML = `
+    <div class="kpi-card" style="--accent:var(--gold)">
+      <div class="kpi-label">PT薪資合計</div>
+      <div class="kpi-value">${fmtRaw(stats.ptSalary)}</div>
+      <div class="kpi-sub">含工時薪 + 獎金</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--purple)">
+      <div class="kpi-label">正職薪資合計</div>
+      <div class="kpi-value">${fmtRaw(stats.ftSalary)}</div>
+      <div class="kpi-sub">月薪 + 出勤獎金</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--red)">
+      <div class="kpi-label">總人事費用</div>
+      <div class="kpi-value red">${fmtRaw(stats.totalLabor)}</div>
+      <div class="kpi-sub">佔營收 ${stats.totalRevenue ? (stats.totalLabor/stats.totalRevenue*100).toFixed(1) : 0}%</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--green)">
+      <div class="kpi-label">出勤人次</div>
+      <div class="kpi-value green">${Object.keys(ptMap).length}</div>
+      <div class="kpi-sub">本月出勤員工數</div>
+    </div>
+  `;
+
+  // Employee cards
+  const allStaff = buildAllStaff(d);
+  const empGrid = document.getElementById('empGrid');
+  empGrid.innerHTML = '';
+
+  allStaff.forEach(emp => {
+    const ptData = ptMap[emp.name] || { hours:0, bonus:0, days:0 };
+    const isFT = emp.type === 'FT';
+    const ftBonus = isFT ? stats.active.reduce((s,e) => {
+      const sh = (e.ptShifts||[]).find(p => p.name === emp.name);
+      return s + (sh ? sh.bonus||0 : 0);
+    }, 0) : 0;
+    const total = isFT ? (emp.salary||0) + ftBonus : (emp.hourly||0) * ptData.hours + ptData.bonus + (emp.salary||0);
+
+    empGrid.innerHTML += `
+      <div class="emp-card ${isFT?'ft':''}">
+        <div style="position:absolute;top:12px;right:12px;">
+          <span class="chip ${isFT?'chip-gold':'chip-blue'}">${isFT?'正職':'PT'}</span>
+        </div>
+        <div class="emp-name">${emp.name}</div>
+        <div class="emp-type">${isFT ? 'Full-time Staff' : 'Part-time Staff'}</div>
+        ${isFT ? `
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">月薪</span>
+            <div class="inline-edit">
+              <input type="number" value="${emp.salary||0}" onchange="updateFTSalary('${emp.name}', this.value)" style="width:90px;padding:4px 8px;">
+            </div>
+          </div>
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">本月獎金</span>
+            <span class="emp-stat-value td-gold">+${fmtRaw(ftBonus)}</span>
+          </div>
+        ` : `
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">時薪</span>
+            <div class="inline-edit">
+              <input type="number" value="${emp.hourly||200}" onchange="updatePTHourly('${emp.name}', this.value)" style="width:70px;padding:4px 8px;">
+              <span style="font-size:11px;color:var(--muted)">元/時</span>
+            </div>
+          </div>
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">累計工時</span>
+            <span class="emp-stat-value">${ptData.hours} 時</span>
+          </div>
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">出勤天數</span>
+            <span class="emp-stat-value">${ptData.days} 天</span>
+          </div>
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">工時薪資</span>
+            <span class="emp-stat-value">${fmtRaw((emp.hourly||0)*ptData.hours)}</span>
+          </div>
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">累計獎金</span>
+            <span class="emp-stat-value td-gold">+${fmtRaw(ptData.bonus)}</span>
+          </div>
+        `}
+        <div class="emp-total">
+          <span class="emp-total-label">月薪合計</span>
+          <span class="emp-total-value">${fmtRaw(total)}</span>
+        </div>
+      </div>
+    `;
+  });
+
+  // Salary table
+  const tbody = document.getElementById('salaryTableBody');
+  tbody.innerHTML = '';
+  let grandTotal = 0;
+  allStaff.forEach(emp => {
+    const ptData = ptMap[emp.name] || { hours:0, bonus:0 };
+    const isFT = emp.type === 'FT';
+    const ftBonus = isFT ? stats.active.reduce((s,e) => {
+      const sh = (e.ptShifts||[]).find(p => p.name === emp.name);
+      return s + (sh ? sh.bonus||0 : 0);
+    }, 0) : 0;
+    const laborPay = isFT ? 0 : (emp.hourly||0) * ptData.hours;
+    const bonus = isFT ? ftBonus : ptData.bonus;
+    const base = isFT ? (emp.salary||0) : (emp.salary||0);
+    const total = laborPay + bonus + base;
+    grandTotal += total;
+    tbody.innerHTML += `
+      <tr>
+        <td><strong>${emp.name}</strong></td>
+        <td><span class="chip ${isFT?'chip-gold':'chip-blue'}">${isFT?'正職':'PT'}</span></td>
+        <td class="td-right td-mono">${isFT ? '—' : (emp.hourly||200)}</td>
+        <td class="td-right td-mono">${isFT ? '—' : ptData.hours}</td>
+        <td class="td-right td-mono">${fmtRaw(laborPay)}</td>
+        <td class="td-right td-gold">+${fmtRaw(bonus)}</td>
+        <td class="td-right td-mono">${fmtRaw(base)}</td>
+        <td class="td-right"><strong class="td-gold">${fmtRaw(total)}</strong></td>
+        <td class="td-muted td-mono" style="font-size:11px;">${isFT ? '固定月薪' : `${ptData.hours}h × ${emp.hourly}`}</td>
+      </tr>`;
+  });
+  document.getElementById('salaryTableFoot').innerHTML = `
+    <td colspan="7" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">總人事費用</td>
+    <td class="td-right" style="font-size:16px;">${fmtRaw(grandTotal)}</td>
+    <td></td>`;
+
+  // Bonus log
+  const bonusBody = document.getElementById('bonusLogBody');
+  bonusBody.innerHTML = '';
+  const active = d.entries.filter(e => !e.closed && (e.ptShifts||[]).some(s => (s.bonus||0) > 0));
+  active.forEach(e => {
+    const shifts = (e.ptShifts||[]).filter(s => (s.bonus||0) > 0);
+    const pool = shifts.reduce((s,sh) => s+(sh.bonus||0), 0);
+    bonusBody.innerHTML += `
+      <tr>
+        <td class="td-mono">${e.date}</td>
+        <td>${DOW_LABELS[DOW_MAP[e.dayName]||0]}</td>
+        <td class="td-right td-mono">${fmtRaw(e.revenue)}</td>
+        <td class="td-right td-mono">${fmtRaw(Math.max(0, e.revenue - getThreshold(e.dayName)))}</td>
+        <td class="td-right td-gold">${fmtRaw(pool)}</td>
+        <td>${shifts.map(s => `<span class="chip chip-blue" style="margin:1px">${s.name} +${s.bonus}</span>`).join('')}</td>
+      </tr>`;
+  });
+}
+
+function buildAllStaff(d) {
+  const result = [];
+  (d.ftStaff||[]).forEach(ft => result.push({...ft, type:'FT'}));
+  (d.ptStaff||[]).forEach(pt => result.push({...pt, type:'PT'}));
+  return result;
+}
+
+function getThreshold(dayName) {
+  if (dayName === 'Fri' || dayName === 'Sat') return bonusConfig.thresholds.fri;
+  if (dayName === 'Thu') return bonusConfig.thresholds.thu;
+  return bonusConfig.thresholds.other;
+}
+
+function updatePTHourly(name, val) {
+  const d = getMonthData(currentMonth);
+  const emp = d.ptStaff.find(e => e.name === name);
+  if (emp) { emp.hourly = +val; saveAll(); toast('已更新 ' + name + ' 時薪'); }
+}
+function updateFTSalary(name, val) {
+  const d = getMonthData(currentMonth);
+  const emp = d.ftStaff.find(e => e.name === name);
+  if (emp) { emp.salary = +val; saveAll(); toast('已更新 ' + name + ' 月薪'); }
+}
+
+function saveBonusConfig() {
+  bonusConfig.thresholds.fri = +document.getElementById('th-fri').value;
+  bonusConfig.thresholds.thu = +document.getElementById('th-thu').value;
+  bonusConfig.thresholds.other = +document.getElementById('th-other').value;
+  bonusConfig.tiers[0].pct = +document.getElementById('pct1').value;
+  bonusConfig.tiers[1].pct = +document.getElementById('pct2').value;
+  bonusConfig.tiers[2].pct = +document.getElementById('pct3').value;
+  saveAll();
+  toast('✓ 獎金設定已儲存');
+  renderSalary();
+}
+
+function addEmployee() {
+  const name = prompt('新員工姓名：');
+  if (!name) return;
+  const type = confirm('正職員工？（取消 = PT）') ? 'FT' : 'PT';
+  const d = getMonthData(currentMonth);
+  if (type === 'FT') {
+    const salary = +prompt('月薪（元）：', '0');
+    d.ftStaff.push({ name, salary, bonus:0 });
+  } else {
+    const hourly = +prompt('時薪（元）：', '200');
+    d.ptStaff.push({ name, hourly, hours:0, bonus:0, salary:0 });
+  }
+  saveAll();
+  renderSalary();
+}
+
+function exportSalaryReport() {
+  const d = getMonthData(currentMonth);
+  const stats = calcMonthStats(currentMonth);
+  const ptMap = calcPtMonthly(currentMonth);
+  let csv = `姓名,類型,時薪,累計工時,工時薪資,月獎金,底薪,月薪合計\n`;
+  buildAllStaff(d).forEach(emp => {
+    const isFT = emp.type === 'FT';
+    const ptData = ptMap[emp.name] || { hours:0, bonus:0 };
+    const ftBonus = isFT ? stats.active.reduce((s,e) => {
+      const sh = (e.ptShifts||[]).find(p => p.name === emp.name);
+      return s + (sh ? sh.bonus||0 : 0);
+    }, 0) : 0;
+    const laborPay = isFT ? 0 : (emp.hourly||0) * ptData.hours;
+    const bonus = isFT ? ftBonus : ptData.bonus;
+    const base = emp.salary||0;
+    const total = laborPay + bonus + base;
+    csv += `${emp.name},${isFT?'正職':'PT'},${isFT?'—':emp.hourly},${isFT?'—':ptData.hours},${laborPay},${bonus},${base},${total}\n`;
+  });
+  const blob = new Blob(['\uFEFF'+csv], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `薪資表_${currentMonth}.csv`;
+  a.click();
+  toast('✓ 薪資表已匯出');
+}
+
+// ─────────────────────────────────────────────────────
+// MODULE 2: PAYMENTS
+// ─────────────────────────────────────────────────────
+function renderPayments() {
+  const d = getMonthData(currentMonth);
+  const advTotal = d.advances.reduce((s,a) => s+a.amount, 0);
+  const vndTotal = (d.vendorPayments||[]).reduce((s,v) => s+v.amount, 0);
+
+  document.getElementById('paymentsKpis').innerHTML = `
+    <div class="kpi-card" style="--accent:var(--blue)">
+      <div class="kpi-label">代墊款合計</div>
+      <div class="kpi-value">${fmtRaw(advTotal)}</div>
+      <div class="kpi-sub">${d.advances.length} 筆</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--gold)">
+      <div class="kpi-label">廠商貨款合計</div>
+      <div class="kpi-value gold">${fmtRaw(vndTotal)}</div>
+      <div class="kpi-sub">${(d.vendorPayments||[]).length} 筆</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--red)">
+      <div class="kpi-label">合計支出</div>
+      <div class="kpi-value red">${fmtRaw(advTotal + vndTotal)}</div>
+      <div class="kpi-sub">代墊 + 廠商</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--green)">
+      <div class="kpi-label">廠商數</div>
+      <div class="kpi-value green">${new Set((d.vendorPayments||[]).map(v=>v.vendor)).size}</div>
+      <div class="kpi-sub">本月往來廠商</div>
+    </div>
+  `;
+
+  document.getElementById('advanceCount').textContent = d.advances.length + ' 筆';
+  document.getElementById('vendorCount').textContent = (d.vendorPayments||[]).length + ' 筆';
+
+  // Advances table
+  const advBody = document.getElementById('advanceTableBody');
+  advBody.innerHTML = '';
+  d.advances.forEach((a, i) => {
+    advBody.innerHTML += `
+      <tr>
+        <td class="td-mono" style="font-size:12px">${a.date}</td>
+        <td>${a.name}</td>
+        <td class="td-muted">${a.note}</td>
+        <td class="td-right td-gold">${fmtRaw(a.amount)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="delAdvance(${i})">✕</button></td>
+      </tr>`;
+  });
+
+  // Vendor table
+  const vndBody = document.getElementById('vendorTableBody');
+  vndBody.innerHTML = '';
+  (d.vendorPayments||[]).forEach((v, i) => {
+    const color = CAT_COLORS[v.cat] || '#88785A';
+    vndBody.innerHTML += `
+      <tr>
+        <td class="td-mono" style="font-size:12px">${v.date}</td>
+        <td>${v.vendor}</td>
+        <td><span class="cat-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${CAT_LABELS[v.cat]||v.cat}</span></td>
+        <td class="td-muted">${v.note}</td>
+        <td class="td-right td-gold">${fmtRaw(v.amount)}</td>
+        <td><button class="btn btn-danger btn-sm" onclick="delVendor(${i})">✕</button></td>
+      </tr>`;
+  });
+
+  // Vendor category chart
+  const catTotals = {};
+  (d.vendorPayments||[]).forEach(v => {
+    catTotals[v.cat] = (catTotals[v.cat]||0) + v.amount;
+  });
+  const cats = Object.keys(catTotals);
+  const catAmts = cats.map(c => catTotals[c]);
+  const catColors = cats.map(c => CAT_COLORS[c]||'#88785A');
+
+  destroyChart('vendorCatChart');
+  if (cats.length > 0) {
+    const ctx = document.getElementById('vendorCatChart').getContext('2d');
+    charts['vendorCatChart'] = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels: cats.map(c=>CAT_LABELS[c]||c), datasets: [{ data: catAmts, backgroundColor: catColors, borderWidth: 2, borderColor: '#1A1208' }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:'#88785A', font:{size:11} } } } }
+    });
+  }
+
+  // Breakdown
+  const breakdown = document.getElementById('vendorCatBreakdown');
+  breakdown.innerHTML = `<div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;">廠商分類明細</div>`;
+  cats.forEach(cat => {
+    const color = CAT_COLORS[cat]||'#88785A';
+    const pct = vndTotal > 0 ? (catTotals[cat]/vndTotal*100).toFixed(1) : 0;
+    breakdown.innerHTML += `
+      <div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
+          <span style="display:flex;align-items:center;gap:8px;font-size:13px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block"></span>
+            ${CAT_LABELS[cat]||cat}
+          </span>
+          <span style="font-family:'Space Mono',monospace;font-size:12px;color:${color}">${fmtRaw(catTotals[cat])}</span>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+      </div>`;
+  });
+}
+
+function addAdvance() {
+  const name = document.getElementById('adv-name').value.trim();
+  const amount = +document.getElementById('adv-amount').value;
+  const note = document.getElementById('adv-note').value.trim();
+  const date = document.getElementById('adv-date').value;
+  if (!name || !amount || !date) { toast('請填寫所有欄位'); return; }
+  const d = getMonthData(currentMonth);
+  d.advances.push({ name, amount, note, date });
+  saveAll();
+  renderPayments();
+  ['adv-name','adv-amount','adv-note'].forEach(id => document.getElementById(id).value = '');
+  toast('✓ 代墊款已新增');
+}
+
+function delAdvance(i) {
+  if (!confirm('確定刪除？')) return;
+  const d = getMonthData(currentMonth);
+  d.advances.splice(i, 1);
+  saveAll(); renderPayments();
+}
+
+function addVendor() {
+  const vendor = document.getElementById('vnd-vendor').value.trim();
+  const cat = document.getElementById('vnd-cat').value;
+  const amount = +document.getElementById('vnd-amount').value;
+  const note = document.getElementById('vnd-note').value.trim();
+  const date = document.getElementById('vnd-date').value;
+  if (!vendor || !amount || !date) { toast('請填寫廠商、金額、日期'); return; }
+  const d = getMonthData(currentMonth);
+  if (!d.vendorPayments) d.vendorPayments = [];
+  d.vendorPayments.push({ vendor, cat, amount, note, date });
+  saveAll();
+  renderPayments();
+  ['vnd-vendor','vnd-amount','vnd-note'].forEach(id => document.getElementById(id).value = '');
+  toast('✓ 廠商貨款已新增');
+}
+
+function delVendor(i) {
+  if (!confirm('確定刪除？')) return;
+  const d = getMonthData(currentMonth);
+  d.vendorPayments.splice(i, 1);
+  saveAll(); renderPayments();
+}
+
+// ─────────────────────────────────────────────────────
+// MODULE 3: ANALYSIS
+// ─────────────────────────────────────────────────────
+function renderAnalysis() {
+  const d = getMonthData(currentMonth);
+  const stats = calcMonthStats(currentMonth);
+  const active = d.entries.filter(e => !e.closed);
+  document.getElementById('analysisMonthLabel').textContent = currentMonth;
+
+  const revenues = active.map(e => e.revenue||0);
+  const maxRev = Math.max(...revenues);
+  const minRev = Math.min(...revenues);
+  const avgRev = revenues.length ? revenues.reduce((a,b)=>a+b,0)/revenues.length : 0;
+  const std = revenues.length ? Math.sqrt(revenues.reduce((s,r)=>s+(r-avgRev)**2,0)/revenues.length) : 0;
+  const cv = avgRev > 0 ? (std/avgRev*100) : 0;
+
+  const bestDow = getBestDow(active);
+
+  document.getElementById('analysisKpis').innerHTML = `
+    <div class="kpi-card" style="--accent:var(--green)">
+      <div class="kpi-label">最高單日</div>
+      <div class="kpi-value green">${fmtRaw(maxRev)}</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--red)">
+      <div class="kpi-label">最低單日</div>
+      <div class="kpi-value red">${fmtRaw(minRev)}</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--gold)">
+      <div class="kpi-label">日均營收</div>
+      <div class="kpi-value gold">${fmtRaw(avgRev)}</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--blue)">
+      <div class="kpi-label">波動係數(CV)</div>
+      <div class="kpi-value">${cv.toFixed(1)}%</div>
+      <div class="kpi-sub">${cv > 40 ? '⚠️ 波動偏大' : '✓ 穩定'}</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--purple)">
+      <div class="kpi-label">月總營收</div>
+      <div class="kpi-value">${fmtRaw(stats.totalRevenue)}</div>
+    </div>
+    <div class="kpi-card" style="--accent:${stats.netProfit>=0?'var(--green)':'var(--red)'}">
+      <div class="kpi-label">月淨利</div>
+      <div class="kpi-value ${stats.netProfit>=0?'green':'red'}">${fmtRaw(stats.netProfit)}</div>
+      <div class="kpi-sub">利潤率 ${stats.profitRate.toFixed(1)}%</div>
+    </div>
+  `;
+
+  // Daily revenue chart
+  destroyChart('dailyRevenueChart');
+  const ctx1 = document.getElementById('dailyRevenueChart').getContext('2d');
+  charts['dailyRevenueChart'] = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: active.map(e => e.date.slice(5) + ' ' + DOW_LABELS[DOW_MAP[e.dayName]||0]),
+      datasets: [{
+        label: '日營收',
+        data: active.map(e => e.revenue),
+        backgroundColor: active.map(e => {
+          const dow = DOW_MAP[e.dayName] || 0;
+          if (dow === 5 || dow === 6) return 'rgba(180,142,240,0.7)';
+          if (dow === 0) return 'rgba(200,144,58,0.7)';
+          return 'rgba(106,171,247,0.6)';
+        }),
+        borderRadius: 4,
+      }]
+    },
+    options: { ...chartDefaults(), scales: { x: { ticks: { color:'#88785A', font:{size:10} }, grid:{ display:false } }, y: { ticks:{ color:'#88785A', callback: v => 'NT$' + (v/1000).toFixed(0) + 'k' }, grid:{ color:'rgba(58,46,30,0.5)' } } } }
+  });
+
+  // DOW chart
+  const dowAvg = Array(7).fill(0);
+  const dowCount = Array(7).fill(0);
+  active.forEach(e => {
+    const dow = DOW_MAP[e.dayName] || 0;
+    dowAvg[dow] += e.revenue;
+    dowCount[dow]++;
+  });
+  const dowFinal = dowAvg.map((s,i) => dowCount[i] > 0 ? s/dowCount[i] : 0);
+
+  destroyChart('dowChart');
+  const ctx2 = document.getElementById('dowChart').getContext('2d');
+  charts['dowChart'] = new Chart(ctx2, {
+    type: 'bar',
+    data: {
+      labels: DOW_LABELS,
+      datasets: [{ label: '平均日收', data: dowFinal, backgroundColor: DOW_COLORS.map(c=>c+'BB'), borderRadius: 6 }]
+    },
+    options: { ...chartDefaults(), scales: { x:{ ticks:{color:'#88785A'}, grid:{display:false} }, y:{ ticks:{color:'#88785A', callback: v => 'NT$'+(v/1000).toFixed(0)+'k'}, grid:{color:'rgba(58,46,30,0.5)'} } } }
+  });
+
+  // Expense pie
+  const expData = [
+    { label:'歌手費用', val: active.reduce((s,e)=>s+(e.singer||0),0), color:'#9B72CF' },
+    { label:'日結酒水', val: active.reduce((s,e)=>s+(e.drinks||0),0), color:'#C8903A' },
+    { label:'日結雜支', val: active.reduce((s,e)=>s+(e.misc||0),0), color:'#6AABF7' },
+    { label:'人事費用', val: stats.totalLabor, color:'#56C97B' },
+    { label:'固定支出', val: stats.fixedTotal, color:'#E8C07A' },
+    { label:'廠商貨款', val: stats.vendorTotal, color:'#FF3C6E' },
+  ].filter(x => x.val > 0);
+
+  destroyChart('expenseChart');
+  const ctx3 = document.getElementById('expenseChart').getContext('2d');
+  charts['expenseChart'] = new Chart(ctx3, {
+    type: 'doughnut',
+    data: { labels: expData.map(x=>x.label), datasets:[{ data: expData.map(x=>x.val), backgroundColor: expData.map(x=>x.color), borderWidth:2, borderColor:'#1A1208' }] },
+    options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:'#88785A', font:{size:11} } } } }
+  });
+
+  // Top/Bottom days
+  const sorted = [...active].sort((a,b) => b.revenue - a.revenue);
+  const medals = ['🥇','🥈','🥉','4️⃣','5️⃣'];
+  const topBody = document.getElementById('topDaysBody');
+  topBody.innerHTML = '';
+  sorted.slice(0,5).forEach((e,i) => {
+    const bonusPool = (e.ptShifts||[]).reduce((s,sh)=>s+(sh.bonus||0),0);
+    topBody.innerHTML += `<tr>
+      <td>${medals[i]}</td>
+      <td class="td-mono">${e.date}</td>
+      <td>${DOW_LABELS[DOW_MAP[e.dayName]||0]}</td>
+      <td class="td-right td-gold">${fmtRaw(e.revenue)}</td>
+      <td class="td-right td-green">${fmtRaw(bonusPool)}</td>
+    </tr>`;
+  });
+
+  const botBody = document.getElementById('botDaysBody');
+  botBody.innerHTML = '';
+  sorted.slice(-5).reverse().forEach((e,i) => {
+    const met = e.revenue >= getThreshold(e.dayName);
+    botBody.innerHTML += `<tr>
+      <td style="color:var(--muted)">${active.length - i}</td>
+      <td class="td-mono">${e.date}</td>
+      <td>${DOW_LABELS[DOW_MAP[e.dayName]||0]}</td>
+      <td class="td-right td-red">${fmtRaw(e.revenue)}</td>
+      <td class="td-right"><span class="chip ${met?'chip-green':'chip-red'}">${met?'✓ 達標':'✕ 未達'}</span></td>
+    </tr>`;
+  });
+
+  // Month comparison chart
+  const months = Object.keys(allData).sort();
+  const monthRevs = months.map(m => calcMonthStats(m).totalRevenue);
+  const monthProfits = months.map(m => calcMonthStats(m).netProfit);
+
+  destroyChart('monthCompChart');
+  const ctx4 = document.getElementById('monthCompChart').getContext('2d');
+  charts['monthCompChart'] = new Chart(ctx4, {
+    type: 'bar',
+    data: {
+      labels: months,
+      datasets: [
+        { label:'月總營收', data: monthRevs, backgroundColor:'rgba(200,144,58,0.6)', borderRadius:6 },
+        { label:'月淨利', data: monthProfits, backgroundColor: monthProfits.map(p => p >= 0 ? 'rgba(86,201,123,0.6)' : 'rgba(255,60,110,0.5)'), borderRadius:6 }
+      ]
+    },
+    options: { ...chartDefaults(), scales: { x:{ticks:{color:'#88785A'},grid:{display:false}}, y:{ticks:{color:'#88785A', callback: v => 'NT$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(58,46,30,0.5)'}} } }
+  });
+
+  // Insights
+  const insights = [];
+  if (bestDow !== null) {
+    insights.push({ type:'', icon:'⭐', text:`本月 <strong>${DOW_LABELS[bestDow]}</strong> 表現最佳，平均日收 <strong>${fmtRaw(dowFinal[bestDow])}</strong> 元` });
+  }
+  if (cv > 40) {
+    insights.push({ type:'warn', icon:'⚠️', text:`業績波動偏大（CV = <strong>${cv.toFixed(1)}%</strong>），建議加強平日行銷或優惠活動` });
+  }
+  const lowDow = dowFinal.findIndex((v,i) => v > 0 && v < avgRev * 0.6);
+  if (lowDow >= 0) {
+    insights.push({ type:'warn', icon:'📉', text:`<strong>${DOW_LABELS[lowDow]}</strong> 平均業績（${fmtRaw(dowFinal[lowDow])}）低於月均 40%，建議特別關注` });
+  }
+  const varCostRate = stats.totalMisc / stats.totalRevenue * 100;
+  if (varCostRate > 30) {
+    insights.push({ type:'warn', icon:'💸', text:`日常可變支出率 <strong>${varCostRate.toFixed(1)}%</strong> 偏高，建議檢視歌手費與日結成本` });
+  }
+  if (stats.profitRate > 20) {
+    insights.push({ type:'good', icon:'🎉', text:`利潤率 <strong>${stats.profitRate.toFixed(1)}%</strong>，本月表現良好` });
+  }
+  const noBonus = active.filter(e => e.revenue < getThreshold(e.dayName)).length;
+  if (noBonus > 5) {
+    insights.push({ type:'warn', icon:'🔔', text:`本月共 <strong>${noBonus} 天</strong>未達獎金門檻，建議檢視定價或促銷策略` });
+  }
+
+  const insightsList = document.getElementById('insightsList');
+  insightsList.innerHTML = insights.map(ins => `
+    <div class="insight-item ${ins.type}">
+      <span class="insight-icon">${ins.icon}</span>
+      <span class="insight-text">${ins.text}</span>
+    </div>`).join('');
+}
+
+function getBestDow(entries) {
+  const dowSum = Array(7).fill(0), dowCount = Array(7).fill(0);
+  entries.forEach(e => { const d = DOW_MAP[e.dayName]||0; dowSum[d]+=e.revenue; dowCount[d]++; });
+  const avgs = dowSum.map((s,i) => dowCount[i]>0 ? s/dowCount[i] : 0);
+  return avgs.indexOf(Math.max(...avgs));
+}
+
+function chartDefaults() {
+  return { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{ color:'#88785A', font:{size:11} } } } };
+}
+function destroyChart(id) {
+  if (charts[id]) { charts[id].destroy(); delete charts[id]; }
+}
+
+// ─────────────────────────────────────────────────────
+// MODULE 4: SHAREHOLDER REPORT
+// ─────────────────────────────────────────────────────
+function generateReport() {
+  const type = document.getElementById('reportType').value;
+  const quarterWrap = document.getElementById('quarterSelectWrap');
+  quarterWrap.style.display = type === 'quarterly' ? 'block' : 'none';
+
+  let months = [];
+  if (type === 'monthly') {
+    months = [currentMonth];
+  } else {
+    const q = document.getElementById('quarterSelect').value;
+    const year = currentMonth.slice(0,4);
+    const qMap = { Q1:['01','02','03'], Q2:['04','05','06'], Q3:['07','08','09'], Q4:['10','11','12'] };
+    months = qMap[q].map(m => `${year}-${m}`);
+  }
+
+  const label = type === 'monthly'
+    ? `${months[0].replace('-','年')}月報`
+    : `${months[0].slice(0,4)}年 ${document.getElementById('quarterSelect').value} 季報`;
+
+  document.getElementById('reportPeriodLabel').textContent = label;
+  document.getElementById('reportGenTime').textContent = new Date().toLocaleString('zh-TW');
+
+  // Aggregate stats
+  let totRev=0, totExp=0, totLabor=0, totFixed=0, totMisc=0, totAdv=0, totVnd=0, totNet=0;
+  let allEntries = [];
+
+  months.forEach(m => {
+    const s = calcMonthStats(m);
+    totRev += s.totalRevenue;
+    totExp += s.totalExpense;
+    totLabor += s.totalLabor;
+    totFixed += s.fixedTotal;
+    totMisc += s.totalMisc;
+    totAdv += s.advancesTotal;
+    totVnd += s.vendorTotal;
+    totNet += s.netProfit;
+    const md = getMonthData(m);
+    allEntries = allEntries.concat(md.entries.filter(e=>!e.closed));
+  });
+  const profitRate = totRev > 0 ? (totNet/totRev*100) : 0;
+
+  // Report KPIs
+  document.getElementById('reportKpis').innerHTML = `
+    <div class="report-kpi highlight">
+      <span class="report-kpi-value">${fmtRaw(totRev)}</span>
+      <div class="report-kpi-label">總營收</div>
+    </div>
+    <div class="report-kpi">
+      <span class="report-kpi-value">${fmtRaw(totExp)}</span>
+      <div class="report-kpi-label">總支出</div>
+    </div>
+    <div class="report-kpi ${totNet>=0?'positive':'negative'}">
+      <span class="report-kpi-value">${fmtRaw(totNet)}</span>
+      <div class="report-kpi-label">淨利</div>
+    </div>
+    <div class="report-kpi ${profitRate>=15?'positive':''}">
+      <span class="report-kpi-value">${profitRate.toFixed(1)}%</span>
+      <div class="report-kpi-label">利潤率</div>
+    </div>
+  `;
+
+  // Waterfall
+  const wfMax = totRev;
+  const items = [
+    { label:'總營收', val:totRev, color:'var(--gold-l)', isTotal:true },
+    { label:'歌手費', val:-totMisc * 0.5, color:'var(--purple)' },
+    { label:'酒水 / 雜支', val:-totMisc * 0.5, color:'var(--blue)' },
+    { label:'人事費用', val:-totLabor, color:'var(--green)' },
+    { label:'廠商貨款', val:-totVnd, color:'#E8C07A' },
+    { label:'固定支出', val:-totFixed, color:'#88785A' },
+    { label:'代墊款', val:-totAdv, color:'var(--red)' },
+  ];
+
+  const wf = document.getElementById('reportWaterfall');
+  wf.innerHTML = items.map(item => {
+    const pct = Math.abs(item.val) / wfMax * 100;
+    const isNeg = item.val < 0;
+    return `<div class="wf-row ${item.isTotal?'total':''}">
+      <div class="wf-label">${item.label}</div>
+      <div class="wf-bar-wrap"><div class="wf-bar" style="width:${Math.min(pct,100)}%;background:${item.color}88"></div></div>
+      <div class="wf-amount" style="color:${item.isTotal?'var(--gold-l)':isNeg?'var(--red)':'var(--green)'}">${isNeg?'-':''}${fmtRaw(Math.abs(item.val))}</div>
+    </div>`;
+  }).join('') + `
+    <div class="wf-row total">
+      <div class="wf-label"><strong>淨利</strong></div>
+      <div class="wf-bar-wrap"><div class="wf-bar" style="width:${Math.min(Math.abs(totNet)/wfMax*100,100)}%;background:${totNet>=0?'var(--green)':'var(--red)'}"></div></div>
+      <div class="wf-amount" style="color:${totNet>=0?'var(--green)':'var(--red)'}"><strong>${fmtRaw(totNet)}</strong></div>
+    </div>`;
+
+  // Expense donut for report
+  destroyChart('reportExpenseChart');
+  const expItems = [
+    { label:'人事', val:totLabor, color:'#56C97B' },
+    { label:'固定支出', val:totFixed, color:'#E8C07A' },
+    { label:'日常可變', val:totMisc, color:'#6AABF7' },
+    { label:'廠商貨款', val:totVnd, color:'#C8903A' },
+    { label:'代墊款', val:totAdv, color:'#FF3C6E' },
+  ].filter(x => x.val > 0);
+
+  const ctx5 = document.getElementById('reportExpenseChart').getContext('2d');
+  charts['reportExpenseChart'] = new Chart(ctx5, {
+    type:'doughnut',
+    data:{ labels:expItems.map(x=>x.label), datasets:[{ data:expItems.map(x=>x.val), backgroundColor:expItems.map(x=>x.color), borderWidth:2, borderColor:'#1A1208' }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ color:'#88785A', font:{size:11} } } } }
+  });
+
+  // Revenue trend in report
+  destroyChart('reportRevenueChart');
+  const sortedEntries = allEntries.sort((a,b)=>a.date.localeCompare(b.date));
+  const ctx6 = document.getElementById('reportRevenueChart').getContext('2d');
+  charts['reportRevenueChart'] = new Chart(ctx6, {
+    type:'line',
+    data:{
+      labels: sortedEntries.map(e=>e.date.slice(5)),
+      datasets:[{
+        label:'日營收',
+        data: sortedEntries.map(e=>e.revenue),
+        borderColor:'#C8903A',
+        backgroundColor:'rgba(200,144,58,0.1)',
+        fill:true,
+        tension:0.4,
+        pointRadius:3,
+        pointBackgroundColor:'#E8C07A'
+      }]
+    },
+    options:{ ...chartDefaults(), scales:{ x:{ticks:{color:'#88785A',font:{size:10}},grid:{display:false}}, y:{ticks:{color:'#88785A', callback:v=>'NT$'+(v/1000).toFixed(0)+'k'},grid:{color:'rgba(58,46,30,0.4)'}} } }
+  });
+
+  // Staff table in report
+  const staffTableDiv = document.getElementById('reportStaffTable');
+  let staffHtml = `<table><thead><tr><th>姓名</th><th>類型</th><th class="td-right">工時薪資</th><th class="td-right">獎金</th><th class="td-right">底薪</th><th class="td-right">合計</th></tr></thead><tbody>`;
+  let staffGrand = 0;
+  months.forEach(m => {
+    const md = getMonthData(m);
+    const mStats = calcMonthStats(m);
+    const ptMap = calcPtMonthly(m);
+    const active = md.entries.filter(e=>!e.closed);
+    buildAllStaff(md).forEach(emp => {
+      const isFT = emp.type === 'FT';
+      const ptData = ptMap[emp.name] || { hours:0, bonus:0 };
+      const ftBonus = isFT ? active.reduce((s,e) => { const sh=(e.ptShifts||[]).find(p=>p.name===emp.name); return s+(sh?sh.bonus||0:0); }, 0) : 0;
+      const laborPay = isFT ? 0 : (emp.hourly||0)*ptData.hours;
+      const bonus = isFT ? ftBonus : ptData.bonus;
+      const base = emp.salary||0;
+      const total = laborPay + bonus + base;
+      staffGrand += total;
+      staffHtml += `<tr><td>${emp.name}${months.length>1?' ('+m+')':''}</td><td><span class="chip ${isFT?'chip-gold':'chip-blue'}">${isFT?'正職':'PT'}</span></td><td class="td-right td-mono">${fmtRaw(laborPay)}</td><td class="td-right td-gold">${fmtRaw(bonus)}</td><td class="td-right td-mono">${fmtRaw(base)}</td><td class="td-right"><strong>${fmtRaw(total)}</strong></td></tr>`;
+    });
+  });
+  staffHtml += `</tbody><tfoot><tr class="tbl-total"><td colspan="5">人事費用合計</td><td class="td-right td-gold" style="font-size:16px">${fmtRaw(staffGrand)}</td></tr></tfoot></table>`;
+  staffTableDiv.innerHTML = staffHtml;
+
+  // Payments section
+  const payDiv = document.getElementById('reportPayments');
+  const advAll = months.flatMap(m => getMonthData(m).advances);
+  const vndAll = months.flatMap(m => (getMonthData(m).vendorPayments||[]));
+  payDiv.innerHTML = `
+    <div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;letter-spacing:0.1em;text-transform:uppercase;">代墊款 — 合計 ${fmtRaw(advAll.reduce((s,a)=>s+a.amount,0))}</div>
+      ${advAll.length ? `<table><thead><tr><th>日期</th><th>代墊人</th><th>說明</th><th class="td-right">金額</th></tr></thead><tbody>
+      ${advAll.map(a=>`<tr><td class="td-mono" style="font-size:11px">${a.date}</td><td>${a.name}</td><td class="td-muted">${a.note}</td><td class="td-right td-gold">${fmtRaw(a.amount)}</td></tr>`).join('')}
+      </tbody></table>` : '<div style="color:var(--muted);font-size:13px">本月無代墊款</div>'}
+    </div>
+    <div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;letter-spacing:0.1em;text-transform:uppercase;">廠商貨款 — 合計 ${fmtRaw(vndAll.reduce((s,v)=>s+v.amount,0))}</div>
+      ${vndAll.length ? `<table><thead><tr><th>廠商</th><th>類別</th><th class="td-right">金額</th></tr></thead><tbody>
+      ${vndAll.map(v=>`<tr><td>${v.vendor}</td><td><span class="cat-badge" style="background:${CAT_COLORS[v.cat]||'#88785A'}22;color:${CAT_COLORS[v.cat]||'#88785A'}">${CAT_LABELS[v.cat]||v.cat}</span></td><td class="td-right td-gold">${fmtRaw(v.amount)}</td></tr>`).join('')}
+      </tbody></table>` : '<div style="color:var(--muted);font-size:13px">本月無廠商貨款</div>'}
+    </div>`;
+}
+
+
+// ─────────────────────────────────────────────────────
+// FT QUARTERLY BONUS
+// ─────────────────────────────────────────────────────
+function calcFTBonus() {
+  const curRev = +document.getElementById('ft-cur-rev').value || 0;
+  const prevRev = +document.getElementById('ft-prev-rev').value || 0;
+  const yoyLowPct = +document.getElementById('yoy-low').value || 3;
+  const yoyHighPct = +document.getElementById('yoy-high').value || 5;
+
+  const resultDiv = document.getElementById('ftBonusResult');
+
+  if (!curRev || !prevRev) {
+    resultDiv.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;">請輸入本期及去年同期平均營收</div>';
+    return;
+  }
+
+  const diff = curRev - prevRev;
+  const yoyPct = diff / prevRev * 100;
+  const increment = Math.max(0, diff);
+
+  let pct = 0;
+  if (yoyPct >= 6) pct = yoyHighPct;
+  else if (yoyPct >= 1) pct = yoyLowPct;
+
+  const monthly = Math.round(increment * pct / 100);
+  const pool = monthly * 3;          // 季 = 3個月
+  const perPerson = Math.round(pool / 2);  // 分給兩位正職
+
+  // Holiday bonus
+  const hbDuanwu = +document.getElementById('hb-duanwu').value || 0;
+  const hbMidautumn = +document.getElementById('hb-midautumn').value || 0;
+  const hbYearend = +document.getElementById('hb-yearend').value || 0;
+  const hbPerPerson = hbDuanwu + hbMidautumn + Math.round(hbYearend / 2);
+
+  const color = yoyPct >= 0 ? 'var(--green)' : 'var(--red)';
+  const pctColor = pct > 0 ? 'var(--gold-l)' : 'var(--muted)';
+
+  resultDiv.innerHTML = `
+    <div style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--muted);">YoY 成長</span>
+        <span style="font-family:'Space Mono',monospace;font-size:16px;font-weight:700;color:${color}">${yoyPct>=0?'+':''}${yoyPct.toFixed(2)}%</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--muted);">提撥率</span>
+        <span style="font-family:'Space Mono',monospace;color:${pctColor}">${pct > 0 ? pct + '%' : '未達門檻（< 1%）'}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--muted);">月增加額</span>
+        <span style="font-family:'Space Mono',monospace;color:var(--text)">${fmtRaw(increment)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--muted);">月可提撥</span>
+        <span style="font-family:'Space Mono',monospace;color:var(--gold)">${fmtRaw(monthly)}</span>
+      </div>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:12px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px;">
+        <span style="font-size:12px;color:var(--muted);">季獎金池（× 3月）</span>
+        <span style="font-family:'Space Mono',monospace;color:var(--gold-l);font-weight:700;">${fmtRaw(pool)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px;">
+        <span style="font-size:13px;color:var(--gold);">每人季業績獎金</span>
+        <span style="font-family:'Space Mono',monospace;font-size:20px;font-weight:700;color:var(--gold-l);">${fmtRaw(perPerson)}</span>
+      </div>
+      ${hbPerPerson > 0 ? `
+      <div style="border-top:1px dashed var(--border);padding-top:10px;margin-top:4px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:6px;">
+          <span style="font-size:12px;color:var(--muted);">節日獎金（端午+中秋+年終/2）</span>
+          <span style="font-family:'Space Mono',monospace;color:var(--purple);">+${fmtRaw(hbPerPerson)}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="font-size:13px;color:var(--gold);">本期每人合計（含節日）</span>
+          <span style="font-family:'Space Mono',monospace;font-size:18px;font-weight:700;color:var(--green);">${fmtRaw(perPerson + hbPerPerson)}</span>
+        </div>
+      </div>` : ''}
+    </div>`;
+
+  // Store current calc in a temp variable for saving
+  window._ftCalcCache = { curRev, prevRev, yoyPct, pct, monthly, pool, perPerson, hb:{ duanwu: hbDuanwu, midautumn: hbMidautumn, yearend: hbYearend } };
+}
+
+function saveFTBonusRecord() {
+  const quarter = document.getElementById('ft-year').value + '-' + document.getElementById('ft-quarter').value;
+  const note = document.getElementById('ft-save-note').value.trim();
+
+  if (!window._ftCalcCache) { toast('請先輸入數值計算'); return; }
+  const c = window._ftCalcCache;
+
+  // Overwrite if same quarter exists
+  const existing = ftBonusHistory.findIndex(r => r.quarter === quarter);
+  const record = { quarter, curRev: c.curRev, prevRev: c.prevRev, yoyPct: c.yoyPct, pct: c.pct, monthly: c.monthly, pool: c.pool, perPerson: c.perPerson, note, hb: c.hb };
+
+  if (existing >= 0) {
+    if (!confirm(`${quarter} 已有紀錄，確定覆蓋？`)) return;
+    ftBonusHistory[existing] = record;
+  } else {
+    ftBonusHistory.push(record);
+  }
+  ftBonusHistory.sort((a,b) => a.quarter.localeCompare(b.quarter));
+  saveFTHistory();
+  renderFTBonusHistory();
+  document.getElementById('ft-save-note').value = '';
+  toast('✓ 季獎金紀錄已儲存');
+}
+
+function delFTBonusRecord(i) {
+  if (!confirm('確定刪除此季紀錄？')) return;
+  ftBonusHistory.splice(i, 1);
+  saveFTHistory();
+  renderFTBonusHistory();
+}
+
+function renderFTBonusHistory() {
+  const tbody = document.getElementById('ftBonusHistoryBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  ftBonusHistory.forEach((r, i) => {
+    const hasYoy = r.yoyPct !== null && r.yoyPct !== undefined;
+    const yoyColor = !hasYoy ? 'var(--muted)' : r.yoyPct >= 6 ? 'var(--green)' : r.yoyPct >= 1 ? 'var(--gold)' : 'var(--red)';
+    tbody.innerHTML += `<tr>
+      <td><strong class="td-gold">${r.quarter}</strong></td>
+      <td class="td-right td-mono">${fmtRaw(r.curRev)}</td>
+      <td class="td-right td-mono">${r.prevRev ? fmtRaw(r.prevRev) : '—'}</td>
+      <td class="td-right" style="font-family:'Space Mono',monospace;color:${yoyColor}">${hasYoy ? (r.yoyPct>=0?'+':'') + r.yoyPct.toFixed(2) + '%' : '基準期'}</td>
+      <td class="td-right td-mono">${r.pct ? r.pct + '%' : '—'}</td>
+      <td class="td-right td-mono">${r.monthly ? fmtRaw(r.monthly) : '—'}</td>
+      <td class="td-right td-gold">${r.pool ? fmtRaw(r.pool) : '—'}</td>
+      <td class="td-right" style="font-family:'Space Mono',monospace;font-size:14px;font-weight:700;color:var(--gold-l)">${r.perPerson ? fmtRaw(r.perPerson) : '—'}</td>
+      <td class="td-muted" style="font-size:11px">${r.note}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="delFTBonusRecord(${i})">✕</button></td>
+    </tr>`;
+  });
+
+  // Year-end summary
+  renderFTYearEndSummary();
+}
+
+function renderFTYearEndSummary() {
+  const el = document.getElementById('ftYearEndSummary');
+  if (!el) return;
+
+  // Group by year
+  const byYear = {};
+  ftBonusHistory.forEach(r => {
+    const yr = r.quarter.slice(0,4);
+    if (!byYear[yr]) byYear[yr] = [];
+    byYear[yr].push(r);
+  });
+
+  let html = '';
+  Object.entries(byYear).sort().forEach(([yr, recs]) => {
+    const totalPool = recs.reduce((s,r) => s + (r.pool||0), 0);
+    const totalPerPerson = recs.reduce((s,r) => s + (r.perPerson||0), 0);
+    const hbTotal = recs.reduce((s,r) => {
+      if (!r.hb) return s;
+      return s + (r.hb.duanwu||0) + (r.hb.midautumn||0) + Math.round((r.hb.yearend||0)/2);
+    }, 0);
+
+    html += `
+      <div style="margin-bottom:16px;padding:14px;background:var(--card);border-radius:8px;border:1px solid var(--border);">
+        <div style="font-family:'Noto Serif TC',serif;font-weight:700;color:var(--gold);margin-bottom:10px;">${yr} 年 正職獎金總覽</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;">
+          <div><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">業績獎金池（年合計）</div><div style="font-family:'Space Mono',monospace;font-size:15px;color:var(--gold-l)">${fmtRaw(totalPool)}</div></div>
+          <div><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">每人業績獎金</div><div style="font-family:'Space Mono',monospace;font-size:15px;color:var(--gold-l)">${fmtRaw(totalPerPerson)}</div></div>
+          <div><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">每人節日獎金</div><div style="font-family:'Space Mono',monospace;font-size:15px;color:var(--purple)">${fmtRaw(hbTotal)}</div></div>
+          <div><div style="font-size:10px;color:var(--muted);margin-bottom:3px;">每人年度合計</div><div style="font-family:'Space Mono',monospace;font-size:18px;font-weight:700;color:var(--green)">${fmtRaw(totalPerPerson + hbTotal)}</div></div>
+        </div>
+        <div style="margin-top:10px;font-size:10px;color:var(--muted);">涵蓋季度：${recs.map(r=>r.quarter).join('、')}</div>
+      </div>`;
+  });
+
+  if (!html) html = '<div style="color:var(--muted);font-size:13px">尚無紀錄</div>';
+  el.innerHTML = html;
+}
+
+function updateFTYearOptions() { calcFTBonus(); }
+
+// ─────────────────────────────────────────────────────
+// NAVIGATION & INIT
+// ─────────────────────────────────────────────────────
+function showModule(name) {
+  document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('module-' + name).classList.add('active');
+  document.getElementById('nav-' + name).classList.add('active');
+
+  if (name === 'salary') { renderSalary(); renderFTBonusHistory(); }
+  else if (name === 'payments') renderPayments();
+  else if (name === 'analysis') renderAnalysis();
+  else if (name === 'report') generateReport();
+}
+
+function changeMonth(val) {
+  currentMonth = val;
+  const active = document.querySelector('.nav-item.active');
+  if (active) {
+    const name = active.id.replace('nav-','');
+    showModule(name);
+  }
+}
+
+function buildMonthSelect() {
+  const sel = document.getElementById('monthSelect');
+  const months = Object.keys(allData).sort().reverse();
+  // Ensure current month exists
+  if (!allData[currentMonth]) {
+    getMonthData(currentMonth);
+    months.unshift(currentMonth);
+  }
+  sel.innerHTML = months.map(m => `<option value="${m}" ${m===currentMonth?'selected':''}>${m}</option>`).join('');
+
+  // Add option for new month
+  const newOpt = document.createElement('option');
+  newOpt.value = '__new__';
+  newOpt.textContent = '+ 新增月份';
+  sel.appendChild(newOpt);
+
+  sel.onchange = function() {
+    if (this.value === '__new__') {
+      const nm = prompt('輸入月份（YYYY-MM）：', new Date().toISOString().slice(0,7));
+      if (nm && /^\d{4}-\d{2}$/.test(nm)) {
+        getMonthData(nm);
+        saveAll();
+        currentMonth = nm;
+        buildMonthSelect();
+        showModule('salary');
+      } else {
+        this.value = currentMonth;
+      }
+    } else {
+      changeMonth(this.value);
+    }
+  };
+}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ─── INIT ────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  loadAll();
+  buildMonthSelect();
+  // Set today's date as default in forms
+  const today = new Date().toISOString().slice(0,10);
+  ['adv-date','vnd-date'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = today;
+  });
+  // Load bonus config UI
+  document.getElementById('th-fri').value = bonusConfig.thresholds.fri;
+  document.getElementById('th-thu').value = bonusConfig.thresholds.thu;
+  document.getElementById('th-other').value = bonusConfig.thresholds.other;
+  document.getElementById('pct1').value = bonusConfig.tiers[0].pct;
+  document.getElementById('pct2').value = bonusConfig.tiers[1].pct;
+  document.getElementById('pct3').value = bonusConfig.tiers[2].pct;
+
+  renderSalary();
+  renderFTBonusHistory();
+  // Init GS sync status
+  if (GS_URL) setSyncStatus('🔗 Sheets 已連線', 'var(--muted)');
+});
+
+
+
+// ═══════════════════════════════════════════════════════
+// GOOGLE SHEETS SYNC FUNCTIONS
+// ═══════════════════════════════════════════════════════
+
+function setSyncStatus(msg, color) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.style.color = color || 'var(--muted)';
+  el.textContent = msg;
+}
+
+async function gsGet(action) {
+  if (!GS_URL) return null;
+  try {
+    const res = await fetch(GS_URL + '?action=' + action);
+    return await res.json();
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+async function gsPost(body) {
+  if (!GS_URL) return null;
+  try {
+    const res = await fetch(GS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    return await res.json();
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+}
+
+async function syncMonthToSheets(key) {
+  if (!GS_URL) return;
+  const res = await gsPost({ action: 'saveMonth', key, value: getMonthData(key) });
+  if (res && res.ok) {
+    setSyncStatus('✅ 已同步 ' + key, 'var(--green)');
+    setTimeout(() => { if (GS_URL) setSyncStatus('🔗 Sheets 已連線', 'var(--muted)'); }, 3000);
+  } else {
+    setSyncStatus('⚠ 同步失敗', 'var(--red)');
+  }
+}
+
+async function testGsConnection() {
+  const url = document.getElementById('gsUrlInput').value.trim();
+  const el  = document.getElementById('gsTestResult');
+  if (!url) { el.textContent = '請先輸入 URL'; return; }
+  el.textContent = '連線測試中...';
+  el.style.color = 'var(--muted)';
+  try {
+    const res  = await fetch(url + '?action=ping');
+    const json = await res.json();
+    if (json.ok) {
+      el.textContent = '✅ 連線成功！' + (json.msg || '') + '  ' + (json.ts || '');
+      el.style.color = 'var(--green)';
+    } else {
+      el.textContent = '❌ 回應異常：' + JSON.stringify(json);
+      el.style.color = 'var(--red)';
+    }
+  } catch (e) {
+    el.textContent = '❌ 連線失敗：' + e.message;
+    el.style.color = 'var(--red)';
+  }
+}
+
+function saveGsSettings() {
+  const url = document.getElementById('gsUrlInput').value.trim();
+  GS_URL = url;
+  localStorage.setItem('dsBarManager_gsUrl', url);
+  const el = document.getElementById('gsTestResult');
+  el.textContent = url ? '✅ 已儲存。之後每次輸入資料將自動同步至 Sheets' : '⚠ URL 已清除，關閉同步';
+  el.style.color = url ? 'var(--green)' : 'var(--gold)';
+  setSyncStatus(url ? '🔗 Sheets 已連線' : '', 'var(--muted)');
+}
+
+async function pushToSheets() {
+  const el = document.getElementById('gsTestResult');
+  if (!GS_URL) { el.textContent = '請先儲存 URL'; return; }
+  el.textContent = '推送中，請稍候...';
+  el.style.color = 'var(--gold)';
+  const [res, res2] = await Promise.all([
+    gsPost({ action: 'save', data: allData }),
+    gsPost({ action: 'saveFTBonus', data: ftBonusHistory })
+  ]);
+  if (res && res.ok) {
+    el.textContent = '✅ 全部資料已推送！月份：' + (Array.isArray(res.saved) ? res.saved.join(', ') : res.saved);
+    el.style.color = 'var(--green)';
+    setSyncStatus('🔗 Sheets 已連線', 'var(--muted)');
+  } else {
+    el.textContent = '❌ 推送失敗：' + (res ? res.error : '網路錯誤');
+    el.style.color = 'var(--red)';
+  }
+}
+
+async function pullFromSheets() {
+  const el = document.getElementById('gsTestResult');
+  if (!GS_URL) { el.textContent = '請先儲存 URL'; return; }
+  el.textContent = '載入中，請稍候...';
+  el.style.color = 'var(--gold)';
+  const res = await gsGet('load');
+  if (res && res.ok) {
+    Object.assign(allData, res.data || {});
+    if (res.ftBonus && res.ftBonus.length) ftBonusHistory = res.ftBonus;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ data: allData, bonusConfig, staffConfig }));
+    saveFTHistory();
+    el.textContent = '✅ 已從 Sheets 載入最新資料';
+    el.style.color = 'var(--green)';
+    buildMonthSelect();
+    const activeNav = document.querySelector('.nav-item.active');
+    if (activeNav) showModule(activeNav.id.replace('nav-', ''));
+  } else {
+    el.textContent = '❌ 載入失敗：' + (res ? res.error : '網路錯誤');
+    el.style.color = 'var(--red)';
+  }
+}
+
+function showSettings() {
+  const modal = document.getElementById('settingsModal');
+  modal.style.display = 'flex';
+  document.getElementById('gsUrlInput').value = GS_URL || '';
+  document.getElementById('gsTestResult').textContent = GS_URL
+    ? '目前已設定 URL，可點「測試連線」確認狀態'
+    : '尚未設定 URL';
+  document.getElementById('gsTestResult').style.color = 'var(--muted)';
+}
+
+function closeSettings() {
+  document.getElementById('settingsModal').style.display = 'none';
+}
+
+</script>
+
+<!-- ─── SETTINGS MODAL ─────────────────────────────────── -->
+<div id="settingsModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:200;align-items:center;justify-content:center;">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;width:520px;max-width:95vw;">
+    <div style="font-family:'Noto Serif TC',serif;font-weight:700;font-size:18px;color:var(--gold-l);margin-bottom:6px;">⚙️ Google Sheets 同步設定</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:20px;font-family:'Space Mono',monospace;">資料將自動同步至你的 Google 試算表</div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label>Apps Script Web App URL</label>
+      <input id="gsUrlInput" placeholder="https://script.google.com/macros/s/....../exec" style="width:100%;">
+    </div>
+    <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+      <button class="btn btn-outline" onclick="testGsConnection()">🔌 測試連線</button>
+      <button class="btn btn-gold" onclick="saveGsSettings()">✓ 儲存設定</button>
+      <button class="btn btn-green" onclick="pushToSheets()">⬆ 一鍵推送全部資料</button>
+      <button class="btn btn-outline" onclick="pullFromSheets()">⬇ 從 Sheets 載入</button>
+    </div>
+    <div id="gsTestResult" style="min-height:32px;padding:10px 14px;background:var(--card);border-radius:8px;font-size:12px;font-family:'Space Mono',monospace;color:var(--muted);"></div>
+    <div style="margin-top:16px;text-align:right;">
+      <button class="btn btn-outline" onclick="closeSettings()">關閉</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ─── PASSWORD SCREEN ─────────────────────────────── -->
+<div id="pwScreen">
+  <div class="pw-box">
+    <div class="pw-logo">DRUNK SHELTER</div>
+    <div class="pw-sub">BAR MANAGER · HANKOU</div>
+    <input class="pw-input" id="pwInput" type="password"
+           placeholder="••••••••"
+           onkeydown="if(event.key==='Enter')checkPw()"
+           autocomplete="current-password">
+    <button class="pw-btn" onclick="checkPw()">進入系統</button>
+    <div class="pw-error" id="pwError"></div>
+  </div>
+</div>
+
+</body>
+</html>
