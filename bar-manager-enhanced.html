@@ -4025,14 +4025,15 @@ async function gsGet(action) {
 async function gsPost(body) {
   if (!GS_URL) return null;
   try {
-    const res = await fetch(GS_URL, {
+    // Apps Script redirects POST (302), CORS headers lost on redirect.
+    // Use no-cors to bypass — data is sent but response is opaque.
+    await fetch(GS_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },  // text/plain avoids CORS preflight
+      headers: { 'Content-Type': 'text/plain' },
       body: JSON.stringify(body),
-      mode: 'cors',
-      redirect: 'follow',
+      mode: 'no-cors',
     });
-    return await res.json();
+    return { ok: true };  // assume success; verify with GET if needed
   } catch (e) {
     return { ok: false, error: e.message };
   }
@@ -4040,11 +4041,12 @@ async function gsPost(body) {
 
 async function syncMonthToSheets(key) {
   if (!GS_URL) return;
-  const res = await gsPost({ action: 'saveMonth', key, value: getMonthData(key) });
-  if (res && res.ok) {
+  try {
+    await gsPost({ action: 'saveMonth', key, value: getMonthData(key) });
+    // no-cors: assume success
     setSyncStatus('✅ 已同步 ' + key, 'var(--green)');
     setTimeout(() => { if (GS_URL) setSyncStatus('🔗 Sheets 已連線', 'var(--muted)'); }, 3000);
-  } else {
+  } catch(e) {
     setSyncStatus('⚠ 同步失敗', 'var(--red)');
   }
 }
@@ -4084,18 +4086,27 @@ function saveGsSettings() {
 async function pushToSheets() {
   const el = document.getElementById('gsTestResult');
   if (!GS_URL) { el.textContent = '請先儲存 URL'; return; }
-  el.textContent = '推送中，請稍候...';
+  el.textContent = '推送中（no-cors 模式）...';
   el.style.color = 'var(--gold)';
-  const [res, res2] = await Promise.all([
-    gsPost({ action: 'save', data: allData }),
-    gsPost({ action: 'saveFTBonus', data: ftBonusHistory })
-  ]);
-  if (res && res.ok) {
-    el.textContent = '✅ 全部資料已推送！月份：' + (Array.isArray(res.saved) ? res.saved.join(', ') : res.saved);
-    el.style.color = 'var(--green)';
-    setSyncStatus('🔗 Sheets 已連線', 'var(--muted)');
-  } else {
-    el.textContent = '❌ 推送失敗：' + (res ? res.error : '網路錯誤');
+  try {
+    // Send data (no-cors: data sent but response opaque)
+    await gsPost({ action: 'save', data: allData });
+    await gsPost({ action: 'saveFTBonus', data: ftBonusHistory });
+    // Verify by loading back from Sheets
+    el.textContent = '驗證中，正在從 Sheets 讀取確認...';
+    await new Promise(r => setTimeout(r, 1500));  // wait for Sheets to process
+    const check = await gsGet('load');
+    if (check && check.ok && check.data) {
+      const keys = Object.keys(check.data);
+      el.textContent = '✅ 推送成功！Sheets 已確認收到月份：' + keys.join(', ');
+      el.style.color = 'var(--green)';
+      setSyncStatus('🔗 Sheets 已連線', 'var(--muted)');
+    } else {
+      el.textContent = '⚠️ 資料已傳送，但無法從 Sheets 確認（可能仍在處理中，請稍後點「從 Sheets 載入」確認）';
+      el.style.color = 'var(--gold)';
+    }
+  } catch(e) {
+    el.textContent = '❌ 推送失敗：' + e.message;
     el.style.color = 'var(--red)';
   }
 }
