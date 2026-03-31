@@ -4025,8 +4025,13 @@ async function gsGet(action) {
 async function gsPost(body) {
   if (!GS_URL) return null;
   try {
-    const payload = encodeURIComponent(JSON.stringify(body));
-    const res = await fetch(GS_URL + '?payload=' + payload);
+    const res = await fetch(GS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },  // text/plain avoids CORS preflight
+      body: JSON.stringify(body),
+      mode: 'cors',
+      redirect: 'follow',
+    });
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
