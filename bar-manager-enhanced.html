@@ -847,6 +847,9 @@ input[type=number] { font-family: 'Space Mono', monospace; }
     <select id="monthSelect" onchange="changeMonth(this.value)"></select>
   </div>
   <nav class="sidebar-nav">
+    <div class="nav-item" onclick="showModule('daily')" id="nav-daily">
+      <span class="nav-icon">📝</span> 每日記錄
+    </div>
     <div class="nav-item active" onclick="showModule('salary')" id="nav-salary">
       <span class="nav-icon">💰</span> 薪資管理
     </div>
@@ -877,6 +880,142 @@ input[type=number] { font-family: 'Space Mono', monospace; }
 
 <!-- ─── MAIN CONTENT ─────────────────────────────────── -->
 <main class="main">
+
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MODULE 0: 每日記錄                                  -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="module" id="module-daily">
+  <div class="page-header">
+    <div>
+      <div class="page-title">每日記錄 <span id="dailyMonthLabel"></span></div>
+      <div class="page-subtitle">DAILY ENTRY</div>
+    </div>
+    <button class="btn btn-gold" onclick="showAddEntry()">＋ 新增今日記錄</button>
+  </div>
+
+  <!-- Entry Form (hidden by default) -->
+  <div id="entryFormPanel" class="panel" style="display:none;margin-bottom:20px;">
+    <div class="panel-header">
+      <div class="panel-title" id="entryFormTitle">📝 新增每日記錄</div>
+      <button class="btn btn-outline btn-sm" onclick="hideEntryForm()">✕ 關閉</button>
+    </div>
+    <div class="panel-body">
+
+      <!-- Basic info -->
+      <div class="form-row">
+        <div class="form-group" style="max-width:160px;">
+          <label>日期</label>
+          <input id="ef-date" type="date" onchange="updateDayName()">
+        </div>
+        <div class="form-group" style="max-width:100px;">
+          <label>星期</label>
+          <input id="ef-day" readonly style="background:var(--card);cursor:default;" placeholder="自動帶入">
+        </div>
+        <div class="form-group">
+          <label>當日總營收 (NT$)</label>
+          <input id="ef-rev" type="number" placeholder="0" oninput="calcEntryBonus()">
+        </div>
+        <div class="form-group" style="max-width:140px;">
+          <label>歌手費</label>
+          <input id="ef-singer" type="number" placeholder="0" value="0">
+        </div>
+        <div class="form-group" style="flex:2;">
+          <label>備注（現金/刷卡/LinePay 明細）</label>
+          <input id="ef-note" placeholder="現金XXXX 刷卡XXXX LinePay XXXX">
+        </div>
+        <div class="form-group" style="max-width:90px;justify-content:flex-end;">
+          <label style="opacity:0">-</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:9px 0;">
+            <input type="checkbox" id="ef-closed" style="width:auto;"> 休息日
+          </label>
+        </div>
+      </div>
+
+      <!-- Misc items -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">日結雜支（逐筆輸入）</div>
+        <div class="form-row" style="margin-bottom:8px;">
+          <div class="form-group">
+            <input id="ef-misc-desc" placeholder="品項說明（乾冰、薯條...）">
+          </div>
+          <div class="form-group" style="max-width:140px;">
+            <select id="ef-misc-cat">
+              <option value="food">食材耗材</option>
+              <option value="drinks">酒水原料</option>
+              <option value="deco">裝飾佈置</option>
+              <option value="hygiene">清潔衛生</option>
+              <option value="repair">設備維修</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div class="form-group" style="max-width:120px;">
+            <input id="ef-misc-amt" type="number" placeholder="金額">
+          </div>
+          <button class="btn btn-outline" onclick="addEntryMiscItem()">＋ 加入</button>
+        </div>
+        <div id="ef-misc-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+        <div style="margin-top:8px;font-size:12px;color:var(--muted);">
+          雜支合計：<span id="ef-misc-total" style="font-family:'Space Mono',monospace;color:var(--gold)">NT$0</span>
+        </div>
+      </div>
+
+      <!-- Staff shifts -->
+      <div style="margin-bottom:16px;">
+        <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;">員工出勤</div>
+        <div class="form-row" style="margin-bottom:8px;">
+          <div class="form-group" style="max-width:160px;">
+            <select id="ef-staff-name"></select>
+          </div>
+          <div class="form-group" style="max-width:110px;">
+            <input id="ef-staff-hours" type="number" step="0.5" min="0" placeholder="時數" oninput="calcEntryBonus()">
+          </div>
+          <button class="btn btn-outline" onclick="addEntryShift()">＋ 加入</button>
+        </div>
+        <div id="ef-shifts-list" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+
+      <!-- Bonus preview -->
+      <div id="ef-bonus-preview" style="background:var(--card);border-radius:8px;padding:14px 16px;margin-bottom:16px;border:1px solid var(--border);font-size:13px;line-height:1.8;"></div>
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;">
+        <button class="btn btn-outline" onclick="hideEntryForm()">取消</button>
+        <button class="btn btn-gold" onclick="saveEntry()">✓ 儲存記錄</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monthly summary -->
+  <div id="dailyKpis" class="kpi-grid" style="margin-bottom:20px;"></div>
+
+  <!-- Entries table -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">📋 本月每日記錄</div>
+      <span class="chip chip-gold" id="dailyEntryCount">0 筆</span>
+    </div>
+    <div class="panel-body">
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>星期</th>
+              <th class="td-right">營收</th>
+              <th class="td-right">歌手費</th>
+              <th class="td-right">雜支</th>
+              <th class="td-right">獎金池</th>
+              <th>出勤員工</th>
+              <th>備注</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="dailyTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div><!-- /module-daily -->
 
 <!-- ═══════════════════════════════════════════════════ -->
 <!-- MODULE 1: 薪資管理                                  -->
@@ -3765,7 +3904,8 @@ function showModule(name) {
   const mn = document.getElementById('mnav-' + name);
   if (mn) mn.classList.add('active');
 
-  if (name === 'salary') { renderSalary(); renderFTBonusHistory(); }
+  if (name === 'daily') renderDaily();
+  else if (name === 'salary') { renderSalary(); renderFTBonusHistory(); }
   else if (name === 'payments') renderPayments();
   else if (name === 'analysis') renderAnalysis();
   else if (name === 'report') generateReport();
@@ -3774,6 +3914,9 @@ function showModule(name) {
 
 function changeMonth(val) {
   currentMonth = val;
+  // Sync mobile select
+  const msel = document.getElementById('mobileMonthSelect');
+  if (msel) msel.value = val;
   const active = document.querySelector('.nav-item.active');
   if (active) {
     const name = active.id.replace('nav-','');
@@ -4342,6 +4485,315 @@ function renderFixedItems() {
     <td></td>`;
 }
 
+
+
+// ═══════════════════════════════════════════════════════
+// DAILY ENTRY MODULE
+// ═══════════════════════════════════════════════════════
+
+const DOW_JS  = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DOW_ZH  = ['週日','週一','週二','週三','週四','週五','週六'];
+
+let _editingEntryIdx = -1;  // -1 = new entry
+let _efMiscItems  = [];     // temp misc items for current form
+let _efShifts     = [];     // temp shifts for current form
+
+function renderDaily() {
+  const d = getMonthData(currentMonth);
+  document.getElementById('dailyMonthLabel').textContent = currentMonth;
+
+  const active = d.entries.filter(e => !e.closed);
+  const totalRev    = active.reduce((s,e) => s+(e.revenue||0), 0);
+  const totalSinger = active.reduce((s,e) => s+(e.singer||0), 0);
+  const totalMisc   = active.reduce((s,e) => s+(e.misc||0), 0);
+  const totalPool   = active.reduce((s,e) => {
+    return s + (e.ptShifts||[]).reduce((ss,sh) => ss+(sh.bonus||0), 0);
+  }, 0);
+
+  document.getElementById('dailyKpis').innerHTML = `
+    <div class="kpi-card" style="--accent:var(--gold)">
+      <div class="kpi-label">月累計營收</div>
+      <div class="kpi-value gold">${fmtRaw(totalRev)}</div>
+      <div class="kpi-sub">${active.length} 個營業日</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--purple)">
+      <div class="kpi-label">歌手費合計</div>
+      <div class="kpi-value">${fmtRaw(totalSinger)}</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--blue)">
+      <div class="kpi-label">日結雜支合計</div>
+      <div class="kpi-value">${fmtRaw(totalMisc)}</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--green)">
+      <div class="kpi-label">獎金池合計</div>
+      <div class="kpi-value green">${fmtRaw(totalPool)}</div>
+    </div>`;
+
+  document.getElementById('dailyEntryCount').textContent = d.entries.length + ' 筆';
+
+  const tbody = document.getElementById('dailyTableBody');
+  const sorted = [...d.entries].sort((a,b) => a.date.localeCompare(b.date));
+  tbody.innerHTML = sorted.map((e, rawIdx) => {
+    const idx = d.entries.indexOf(e);
+    const pool = (e.ptShifts||[]).reduce((s,sh) => s+(sh.bonus||0), 0);
+    const miscAmt = e.misc||0;
+    const dayIdx  = DOW_JS.indexOf(e.dayName);
+    const dayZH   = dayIdx >= 0 ? DOW_ZH[dayIdx] : e.dayName;
+    const chips   = (e.ptShifts||[]).map(sh =>
+      `<span class="chip chip-blue" style="margin:1px;font-size:10px;">${sh.name} ${sh.hours}h</span>`
+    ).join('');
+    return `<tr ${e.closed ? 'style="opacity:0.4"' : ''}>
+      <td class="td-mono" style="font-size:12px">${e.date}</td>
+      <td>${e.closed ? '<span class="chip chip-red">休息</span>' : dayZH}</td>
+      <td class="td-right td-gold">${e.closed ? '—' : fmtRaw(e.revenue||0)}</td>
+      <td class="td-right td-mono">${e.closed ? '—' : fmtRaw(e.singer||0)}</td>
+      <td class="td-right td-mono">${e.closed ? '—' : fmtRaw(miscAmt)}</td>
+      <td class="td-right ${pool>0?'td-green':'td-muted'}">${e.closed ? '—' : fmtRaw(pool)}</td>
+      <td>${chips}</td>
+      <td class="td-muted" style="font-size:11px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${e.note||''}</td>
+      <td style="display:flex;gap:4px;">
+        <button class="btn btn-outline btn-sm" onclick="editEntry(${idx})">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteEntry(${idx})">✕</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function showAddEntry() {
+  _editingEntryIdx = -1;
+  _efMiscItems = [];
+  _efShifts    = [];
+  document.getElementById('entryFormTitle').textContent = '📝 新增每日記錄';
+  document.getElementById('ef-date').value   = new Date().toISOString().slice(0,10);
+  document.getElementById('ef-rev').value    = '';
+  document.getElementById('ef-singer').value = '0';
+  document.getElementById('ef-note').value   = '';
+  document.getElementById('ef-closed').checked = false;
+  updateDayName();
+  renderEntryMiscList();
+  renderEntryShiftList();
+  populateStaffSelect();
+  document.getElementById('entryFormPanel').style.display = 'block';
+  document.getElementById('entryFormPanel').scrollIntoView({ behavior:'smooth' });
+}
+
+function editEntry(idx) {
+  const d = getMonthData(currentMonth);
+  const e = d.entries[idx];
+  if (!e) return;
+  _editingEntryIdx = idx;
+
+  // Populate misc items from e.misc (flat total) — show as single "other" if no breakdown
+  _efMiscItems = (e.miscItems && e.miscItems.length > 0)
+    ? [...e.miscItems]
+    : (e.misc > 0 ? [{ desc:'（原始雜支）', cat:'other', amount: e.misc }] : []);
+  _efShifts = (e.ptShifts||[]).map(s => ({ name:s.name, hourly:s.hourly, hours:s.hours, bonus:s.bonus }));
+
+  document.getElementById('entryFormTitle').textContent = '✏️ 編輯 ' + e.date;
+  document.getElementById('ef-date').value    = e.date;
+  document.getElementById('ef-rev').value     = e.revenue||0;
+  document.getElementById('ef-singer').value  = e.singer||0;
+  document.getElementById('ef-note').value    = e.note||'';
+  document.getElementById('ef-closed').checked = !!e.closed;
+  updateDayName();
+  renderEntryMiscList();
+  renderEntryShiftList();
+  populateStaffSelect();
+  document.getElementById('entryFormPanel').style.display = 'block';
+  document.getElementById('entryFormPanel').scrollIntoView({ behavior:'smooth' });
+}
+
+function hideEntryForm() {
+  document.getElementById('entryFormPanel').style.display = 'none';
+}
+
+function deleteEntry(idx) {
+  if (!confirm('確定刪除此筆記錄？')) return;
+  const d = getMonthData(currentMonth);
+  d.entries.splice(idx, 1);
+  saveAll();
+  renderDaily();
+  toast('記錄已刪除');
+}
+
+function updateDayName() {
+  const val = document.getElementById('ef-date').value;
+  if (!val) return;
+  const d = new Date(val + 'T12:00:00');
+  const idx = d.getDay();
+  document.getElementById('ef-day').value = DOW_ZH[idx];
+  calcEntryBonus();
+}
+
+function populateStaffSelect() {
+  const d = getMonthData(currentMonth);
+  const sel = document.getElementById('ef-staff-name');
+  const allNames = [
+    ...(d.ftStaff||[]).map(f => f.name),
+    ...(d.ptStaff||[]).map(p => p.name),
+  ];
+  sel.innerHTML = allNames.map(n => `<option value="${n}">${n}</option>`).join('');
+}
+
+function addEntryMiscItem() {
+  const desc   = document.getElementById('ef-misc-desc').value.trim();
+  const cat    = document.getElementById('ef-misc-cat').value;
+  const amount = +document.getElementById('ef-misc-amt').value;
+  if (!amount) { toast('請輸入金額'); return; }
+  _efMiscItems.push({ desc: desc||cat, cat, amount });
+  document.getElementById('ef-misc-desc').value = '';
+  document.getElementById('ef-misc-amt').value  = '';
+  renderEntryMiscList();
+}
+
+function removeEntryMisc(i) {
+  _efMiscItems.splice(i, 1);
+  renderEntryMiscList();
+}
+
+function renderEntryMiscList() {
+  const total = _efMiscItems.reduce((s,m) => s+m.amount, 0);
+  const colors = MISC_CAT_COLORS || {};
+  document.getElementById('ef-misc-list').innerHTML = _efMiscItems.map((m,i) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:${colors[m.cat]||'#88785A'}22;border:1px solid ${colors[m.cat]||'#88785A'}44;border-radius:6px;padding:4px 10px;font-size:12px;">
+      <span style="color:${colors[m.cat]||'#88785A'}">${m.desc}</span>
+      <span style="font-family:'Space Mono',monospace;color:var(--text)">NT$${fmtRaw(m.amount)}</span>
+      <button onclick="removeEntryMisc(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;padding:0 0 0 4px;font-size:13px;">✕</button>
+    </span>`
+  ).join('');
+  document.getElementById('ef-misc-total').textContent = 'NT$' + fmtRaw(total);
+}
+
+function addEntryShift() {
+  const name  = document.getElementById('ef-staff-name').value;
+  const hours = +document.getElementById('ef-staff-hours').value;
+  if (!hours) { toast('請輸入時數'); return; }
+
+  const d = getMonthData(currentMonth);
+  const ptEmp = (d.ptStaff||[]).find(p => p.name === name);
+  const ftEmp = (d.ftStaff||[]).find(f => f.name === name);
+  const hourly = ptEmp ? (ptEmp.hourly||0) : 0;
+
+  // Check if already added
+  const existing = _efShifts.findIndex(s => s.name === name);
+  if (existing >= 0) {
+    _efShifts[existing].hours = hours;
+  } else {
+    _efShifts.push({ name, hourly, hours, bonus: 0 });
+  }
+  document.getElementById('ef-staff-hours').value = '';
+  calcEntryBonus();
+  renderEntryShiftList();
+}
+
+function removeEntryShift(i) {
+  _efShifts.splice(i, 1);
+  calcEntryBonus();
+  renderEntryShiftList();
+}
+
+function renderEntryShiftList() {
+  document.getElementById('ef-shifts-list').innerHTML = _efShifts.map((s,i) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;background:var(--blue-bg);border:1px solid rgba(106,171,247,0.3);border-radius:6px;padding:4px 10px;font-size:12px;">
+      <span style="color:var(--blue)">${s.name}</span>
+      <span style="font-family:'Space Mono',monospace;color:var(--text)">${s.hours}h</span>
+      ${s.bonus > 0 ? `<span style="color:var(--green)">+${fmtRaw(s.bonus)}</span>` : ''}
+      <button onclick="removeEntryShift(${i})" style="background:none;border:none;color:var(--red);cursor:pointer;padding:0 0 0 4px;font-size:13px;">✕</button>
+    </span>`
+  ).join('');
+}
+
+function calcEntryBonus() {
+  const rev    = +document.getElementById('ef-rev').value || 0;
+  const dateV  = document.getElementById('ef-date').value;
+  if (!dateV || _efShifts.length === 0) {
+    document.getElementById('ef-bonus-preview').innerHTML =
+      '<span style="color:var(--muted)">填入營收和員工出勤後自動計算獎金</span>';
+    return;
+  }
+  const dow = DOW_JS[new Date(dateV + 'T12:00:00').getDay()];
+  const pool = calc_pool_daily(rev, dow);
+  const totalH = _efShifts.reduce((s,sh) => s+sh.hours, 0);
+
+  if (pool > 0 && totalH > 0) {
+    const perH = pool / totalH;
+    let done = 0;
+    _efShifts.forEach((sh, i) => {
+      sh.bonus = (i === _efShifts.length - 1)
+        ? pool - done
+        : Math.round(perH * sh.hours);
+      done += sh.bonus;
+    });
+  } else {
+    _efShifts.forEach(sh => sh.bonus = 0);
+  }
+
+  renderEntryShiftList();
+  const thr  = get_threshold_daily(dow);
+  const excess = Math.max(0, rev - thr);
+  document.getElementById('ef-bonus-preview').innerHTML =
+    pool > 0
+      ? `<span style="color:var(--muted)">門檻 NT$${fmtRaw(thr)} | 超額 NT$${fmtRaw(excess)} | </span><strong style="color:var(--green)">獎金池 NT$${fmtRaw(pool)}</strong>`
+      : `<span style="color:var(--muted)">未達門檻（NT$${fmtRaw(thr)}），本日無獎金</span>`;
+}
+
+function get_threshold_daily(dow) {
+  if (dow === 'Fri' || dow === 'Sat') return bonusConfig.thresholds.fri || 42000;
+  if (dow === 'Thu') return bonusConfig.thresholds.thu || 24000;
+  return bonusConfig.thresholds.other || 22000;
+}
+
+function calc_pool_daily(rev, dow) {
+  const excess = rev - get_threshold_daily(dow);
+  if (excess <= 0) return 0;
+  let pool = Math.min(excess, 10000) * ((bonusConfig.tiers[0].pct||6) / 100);
+  pool += Math.min(Math.max(excess - 10000, 0), 10000) * ((bonusConfig.tiers[1].pct||10) / 100);
+  pool += Math.max(excess - 20000, 0) * ((bonusConfig.tiers[2].pct||15) / 100);
+  return Math.round(pool);
+}
+
+function saveEntry() {
+  const date   = document.getElementById('ef-date').value;
+  const rev    = +document.getElementById('ef-rev').value || 0;
+  const singer = +document.getElementById('ef-singer').value || 0;
+  const note   = document.getElementById('ef-note').value.trim();
+  const closed = document.getElementById('ef-closed').checked;
+
+  if (!date) { toast('請選擇日期'); return; }
+
+  const dow    = DOW_JS[new Date(date + 'T12:00:00').getDay()];
+  const misc   = _efMiscItems.reduce((s,m) => s+m.amount, 0);
+
+  const entry = {
+    date, dayName: dow, revenue: rev, misc, drinks: 0,
+    singer, singerTip: 0, extraIncome: 0, note, closed,
+    ptShifts: _efShifts.map(s => ({ name:s.name, hourly:s.hourly, hours:s.hours, bonus:s.bonus })),
+    miscItems: [..._efMiscItems],
+  };
+
+  const d = getMonthData(currentMonth);
+
+  if (_editingEntryIdx >= 0) {
+    d.entries[_editingEntryIdx] = entry;
+    toast('✓ 記錄已更新');
+  } else {
+    // Check for duplicate date
+    const dupIdx = d.entries.findIndex(e => e.date === date);
+    if (dupIdx >= 0) {
+      if (!confirm(`${date} 已有記錄，確定覆蓋？`)) return;
+      d.entries[dupIdx] = entry;
+    } else {
+      d.entries.push(entry);
+    }
+    toast('✓ 記錄已儲存');
+  }
+
+  d.entries.sort((a,b) => a.date.localeCompare(b.date));
+  saveAll();
+  hideEntryForm();
+  renderDaily();
+}
+
 </script>
 
 <!-- ─── SETTINGS MODAL ─────────────────────────────────── -->
@@ -4392,6 +4844,10 @@ function renderFixedItems() {
 <!-- ─── MOBILE BOTTOM NAV ───────────────────────────── -->
 <nav class="mobile-nav">
   <div class="mobile-nav-items">
+    <button class="mobile-nav-item" id="mnav-daily" onclick="showModule('daily')">
+      <span class="mn-icon">📝</span>
+      <span class="mn-label">每日記錄</span>
+    </button>
     <button class="mobile-nav-item active" id="mnav-salary" onclick="showModule('salary')">
       <span class="mn-icon">💰</span>
       <span class="mn-label">薪資</span>
