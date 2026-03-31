@@ -721,6 +721,116 @@ input[type=number] { font-family: 'Space Mono', monospace; }
   75%{transform:translateX(8px)}
 }
 
+
+/* ─── MISC ITEMS ────────────────────────────────────── */
+.misc-item-row {
+  display: flex; gap: 8px; align-items: center;
+  padding: 6px 10px; background: var(--card);
+  border-radius: 6px; margin-bottom: 6px; flex-wrap: wrap;
+}
+.misc-cat-badge {
+  font-size: 10px; padding: 2px 8px; border-radius: 4px;
+  white-space: nowrap; font-weight: 500;
+}
+.misc-items-list { margin-top: 8px; }
+
+
+/* ─── MOBILE NAV ────────────────────────────────────── */
+.mobile-nav {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  z-index: 200;
+  padding: 0;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.mobile-nav-items {
+  display: flex;
+  justify-content: space-around;
+  align-items: stretch;
+}
+.mobile-nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 4px 8px;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 10px;
+  letter-spacing: 0.03em;
+  gap: 4px;
+  border: none;
+  background: none;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+.mobile-nav-item.active {
+  color: var(--gold);
+}
+.mobile-nav-item .mn-icon { font-size: 20px; line-height: 1; }
+.mobile-nav-item .mn-label { font-size: 9px; letter-spacing: 0.05em; }
+
+/* Mobile month selector bar */
+.mobile-topbar {
+  display: none;
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  z-index: 150;
+  padding: 10px 16px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.mobile-topbar .brand {
+  font-family: 'Noto Serif TC', serif;
+  font-weight: 900;
+  font-size: 13px;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+.mobile-topbar select {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  outline: none;
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  :root { --sidebar-w: 0px; }
+  .sidebar { display: none !important; }
+  .mobile-nav { display: block; }
+  .mobile-topbar { display: flex; }
+  .main {
+    margin-left: 0 !important;
+    padding: 72px 14px 80px !important;
+    max-width: 100% !important;
+  }
+  .two-col, .three-col, .report-kpi-grid, .emp-grid {
+    grid-template-columns: 1fr !important;
+  }
+  .kpi-grid {
+    grid-template-columns: 1fr 1fr !important;
+  }
+  .form-row { flex-direction: column; }
+  .page-header { flex-direction: column; align-items: flex-start; }
+  .wf-bar-wrap { width: 100px !important; }
+  .report-toolbar { flex-direction: column; align-items: flex-start; }
+  .tbl-wrap { font-size: 12px; }
+  th, td { padding: 8px 10px !important; }
+}
+
 </style>
 </head>
 <body>
@@ -748,6 +858,9 @@ input[type=number] { font-family: 'Space Mono', monospace; }
     </div>
     <div class="nav-item" onclick="showModule('report')" id="nav-report">
       <span class="nav-icon">📄</span> 股東報告
+    </div>
+    <div class="nav-item" onclick="showModule('tax')" id="nav-tax">
+      <span class="nav-icon">🏛</span> 年度薪資申報
     </div>
     <div class="nav-item" onclick="showSettings()" id="nav-settings" style="margin-top:auto;">
       <span class="nav-icon">⚙️</span> Google Sheets 設定
@@ -854,7 +967,8 @@ input[type=number] { font-family: 'Space Mono', monospace; }
               <th class="td-right">工時薪資</th>
               <th class="td-right">月獎金</th>
               <th class="td-right">底薪</th>
-              <th class="td-right">月薪合計</th>
+              <th class="td-right">勞健保（扣）</th>
+              <th class="td-right">實發金額</th>
               <th>備注</th>
             </tr>
           </thead>
@@ -1031,10 +1145,13 @@ input[type=number] { font-family: 'Space Mono', monospace; }
     <!-- 代墊款 -->
     <div class="panel">
       <div class="panel-header">
-        <div class="panel-title">💳 代墊款紀錄</div>
+        <div class="panel-title">💳 代墊款追蹤（月底匯款用）</div>
         <span class="chip chip-blue" id="advanceCount">0 筆</span>
       </div>
       <div class="panel-body">
+        <div style="background:var(--blue-bg);border:1px solid rgba(106,171,247,0.25);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--muted);line-height:1.7;">
+          💡 代墊款費用已記入當日雜支，此處僅追蹤「誰墊了錢」，月底核算後匯款給代墊人。不重複計入月支出。
+        </div>
         <div class="form-row">
           <div class="form-group">
             <label>代墊人</label>
@@ -1126,6 +1243,121 @@ input[type=number] { font-family: 'Space Mono', monospace; }
           <canvas id="vendorCatChart"></canvas>
         </div>
         <div id="vendorCatBreakdown"></div>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 月結固定支出 -->
+  <div class="panel" style="margin-top:20px;">
+    <div class="panel-header">
+      <div class="panel-title">🏢 月結固定支出</div>
+      <span class="chip chip-gold" id="fixedTotalChip">統計中...</span>
+    </div>
+    <div class="panel-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label>類別</label>
+          <select id="fi-cat">
+            <option value="rent">房租</option>
+            <option value="utilities">水電費</option>
+            <option value="telecom">網路／電話費</option>
+            <option value="ads">廣告費</option>
+            <option value="accounting">會計／記帳費</option>
+            <option value="cardFee">信用卡／LinePay 手續費</option>
+            <option value="hookah">水煙耗材進貨</option>
+            <option value="cleaning">清潔消毒服務</option>
+            <option value="equipment">設備維修＆採購</option>
+            <option value="renovation">裝潢維修</option>
+            <option value="insurance">保險費</option>
+            <option value="miscMonthly">其他月結支出</option>
+          </select>
+        </div>
+        <div class="form-group" style="max-width:160px;">
+          <label>金額</label>
+          <input id="fi-amount" type="number" placeholder="0">
+        </div>
+        <div class="form-group">
+          <label>備注</label>
+          <input id="fi-note" placeholder="三月房租...">
+        </div>
+        <div class="form-group" style="max-width:150px;">
+          <label>日期</label>
+          <input id="fi-date" type="date">
+        </div>
+        <button class="btn btn-gold" onclick="addFixedItem()">新增</button>
+      </div>
+
+      <!-- Breakdown -->
+      <div class="two-col" style="margin-bottom:16px;">
+        <div id="fixedCatBreakdown"></div>
+        <div class="chart-wrap-sm"><canvas id="fixedCatChart"></canvas></div>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>日期</th><th>類別</th><th>備注</th>
+            <th class="td-right">金額</th><th></th>
+          </tr></thead>
+          <tbody id="fixedItemsBody"></tbody>
+          <tfoot><tr class="tbl-total" id="fixedItemsFoot"></tr></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 日結雜支分類明細 -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">🧾 日結雜支分類明細</div>
+      <span class="chip chip-blue" id="miscTotalChip">統計中...</span>
+    </div>
+    <div class="panel-body">
+      <!-- 新增明細 -->
+      <div class="form-row" style="margin-bottom:16px;">
+        <div class="form-group" style="max-width:140px;">
+          <label>日期</label>
+          <input id="mi-date" type="date">
+        </div>
+        <div class="form-group">
+          <label>品項說明</label>
+          <input id="mi-desc" placeholder="乾冰 / 薯條 / 小花...">
+        </div>
+        <div class="form-group" style="max-width:140px;">
+          <label>類別</label>
+          <select id="mi-cat">
+            <option value="food">食材耗材（薯條、水果、乾冰）</option>
+            <option value="drinks">酒水原料（檸檬汁、開元...）</option>
+            <option value="deco">裝飾佈置（小花、迷迭香）</option>
+            <option value="hygiene">清潔衛生（手套、衛材）</option>
+            <option value="repair">設備維修</option>
+            <option value="other">其他</option>
+          </select>
+        </div>
+        <div class="form-group" style="max-width:120px;">
+          <label>金額</label>
+          <input id="mi-amount" type="number" placeholder="0">
+        </div>
+        <button class="btn btn-gold" onclick="addMiscItem()">新增</button>
+      </div>
+
+      <!-- 分類統計 -->
+      <div class="two-col" style="margin-bottom:16px;">
+        <div id="miscCatBreakdown"></div>
+        <div class="chart-wrap-sm"><canvas id="miscCatChart"></canvas></div>
+      </div>
+
+      <!-- 明細列表 -->
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>日期</th><th>品項</th><th>類別</th>
+            <th class="td-right">金額</th><th></th>
+          </tr></thead>
+          <tbody id="miscItemsBody"></tbody>
+        </table>
       </div>
     </div>
   </div>
@@ -1308,6 +1540,86 @@ input[type=number] { font-family: 'Space Mono', monospace; }
 
 </div><!-- /module-report -->
 
+
+<!-- ═══════════════════════════════════════════════════ -->
+<!-- MODULE 5: 年度薪資申報                              -->
+<!-- ═══════════════════════════════════════════════════ -->
+<div class="module" id="module-tax">
+  <div class="page-header">
+    <div>
+      <div class="page-title">年度 <span>薪資申報</span></div>
+      <div class="page-subtitle">ANNUAL SALARY DECLARATION · 國稅局格式</div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+      <div class="form-group" style="min-width:120px;">
+        <label style="font-size:10px;color:var(--muted);letter-spacing:0.1em;">申報年度</label>
+        <select id="taxYear" onchange="renderTax()" style="padding:8px 12px;">
+          <option value="2025">2025年</option>
+          <option value="2026">2026年</option>
+        </select>
+      </div>
+      <button class="btn btn-gold" style="margin-top:16px;" onclick="exportTaxCSV()">⬇ 匯出 CSV</button>
+      <button class="btn btn-outline" style="margin-top:16px;" onclick="window.print()">🖨 列印</button>
+    </div>
+  </div>
+
+  <!-- 雇主資料 -->
+  <div class="config-section" style="margin-bottom:20px;">
+    <div class="config-title">🏢 雇主基本資料</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;">
+      <div class="form-group"><label>公司名稱</label><input id="taxCompany" value="Drunk Shelter Hankou" placeholder="公司名稱"></div>
+      <div class="form-group"><label>統一編號</label><input id="taxUBN" placeholder="00000000"></div>
+      <div class="form-group"><label>地址</label><input id="taxAddr" value="台北市萬華區漢口街二段71號1樓" placeholder="公司地址"></div>
+      <div class="form-group"><label>負責人</label><input id="taxOwner" placeholder="負責人姓名"></div>
+    </div>
+  </div>
+
+  <!-- 申報說明 -->
+  <div style="background:var(--blue-bg);border:1px solid rgba(106,171,247,0.3);border-radius:8px;padding:14px 18px;margin-bottom:20px;font-size:12px;color:var(--text);line-height:1.8;">
+    📋 <strong style="color:var(--blue)">格式說明：</strong>
+    依國稅局各類所得扣繳暨免扣繳憑單格式。薪資所得屬「50 薪資所得」。
+    勞健保自付額從薪資總額扣除後為應申報所得。本表為申報底稿，預扣稅額請洽會計師確認後填入。
+  </div>
+
+  <!-- 薪資明細表 -->
+  <div class="panel">
+    <div class="panel-header">
+      <div class="panel-title">📋 薪資所得申報明細（格式50）</div>
+      <span class="chip chip-gold" id="taxTotalChip">統計中...</span>
+    </div>
+    <div class="panel-body">
+      <div class="tbl-wrap">
+        <table id="taxTable">
+          <thead>
+            <tr>
+              <th>序號</th>
+              <th>姓名</th>
+              <th>身分類型</th>
+              <th class="td-right">薪資合計</th>
+              <th class="td-right">勞健保（自付）</th>
+              <th class="td-right">應申報所得</th>
+              <th>備注</th>
+            </tr>
+          </thead>
+          <tbody id="taxTableBody"></tbody>
+          <tfoot><tr class="tbl-total" id="taxTableFoot"></tr></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 年度月份選擇 -->
+  <div class="panel">
+    <div class="panel-header"><div class="panel-title">📅 納入計算的月份</div></div>
+    <div class="panel-body">
+      <div id="taxMonthsGrid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+      <div style="margin-top:12px;font-size:12px;color:var(--muted);">
+        ※ 只顯示系統中已有資料的月份，勾選要納入年度申報的月份
+      </div>
+    </div>
+  </div>
+
+</div><!-- /module-tax -->
 </main><!-- /main -->
 
 <div class="toast" id="toast"></div>
@@ -1327,6 +1639,11 @@ let bonusConfig = {
 let staffConfig = [];
 let ftBonusHistory = [];
 let charts = {};
+
+const FIXED_CAT_LABELS = {'rent': '房租', 'utilities': '水電費', 'telecom': '網路／電話費', 'ads': '廣告費', 'accounting': '會計／記帳費', 'cardFee': '信用卡／LinePay 手續費', 'hookah': '水煙耗材進貨', 'cleaning': '清潔消毒服務', 'equipment': '設備維修＆採購', 'renovation': '裝潢維修', 'insurance': '保險費', 'miscMonthly': '其他月結支出', 'prevBalance': '前月結餘', 'cashFloat': '店內零用金'};
+const FIXED_CAT_COLORS = {'rent': '#C8903A', 'utilities': '#E8C07A', 'telecom': '#6AABF7', 'ads': '#B48EF0', 'accounting': '#56C97B', 'cardFee': '#FF3C6E', 'hookah': '#88785A', 'cleaning': '#3CF0D8', 'equipment': '#F0A030', 'renovation': '#E05555', 'insurance': '#9B72CF', 'miscMonthly': '#4A4A6A', 'prevBalance': '#0A0A0F', 'cashFloat': '#0A0A0F'};
+const FIXED_CAT_OCCASIONAL = {'rent': false, 'utilities': false, 'telecom': false, 'ads': false, 'accounting': false, 'cardFee': false, 'hookah': false, 'cleaning': false, 'equipment': false, 'renovation': true, 'insurance': true, 'miscMonthly': false, 'prevBalance': false, 'cashFloat': false};
+const FIXED_NON_EXPENSE = ['prevBalance','cashFloat'];
 
 const CAT_LABELS = {
   alcohol:'酒水', food:'食材', supplies:'耗材',
@@ -2226,7 +2543,8 @@ function seedData() {
         "vendor": "文哥",
         "cat": "alcohol",
         "amount": 11400,
-        "note": "文哥的酒"
+        "note": "文哥的酒",
+        "date": "2026-03-21"
     }
 ];
 
@@ -2245,7 +2563,7 @@ function seedData() {
       { name:'Echo', hourly:200, hours:0, bonus:0, salary:0 },
       { name:'小葉', hourly:200, hours:0, bonus:0, salary:0 },
       { name:'妃妃', hourly:200, hours:0, bonus:0, salary:0 },
-      { name:'Debby', hourly:0,   hours:0, bonus:0, salary:0 },
+      { name:'Debby', hourly:0,   hours:0, bonus:0, salary:5000 },
     ],
     ftStaff: [
       { name:'Pino', salary:45000, bonus:0 },
@@ -2267,7 +2585,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '7', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '9', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -2279,7 +2597,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '7';
+  const DATA_VERSION = '9';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -2322,9 +2640,23 @@ function calcMonthStats(key) {
   const d = getMonthData(key);
   const active = d.entries.filter(e => !e.closed);
   const totalRevenue = active.reduce((s,e) => s + (e.revenue||0) + (e.extraIncome||0), 0);
+  const totalSinger = active.reduce((s,e) => s + (e.singer||0) + (e.singerTip||0), 0);
   const totalMisc = active.reduce((s,e) => s + (e.misc||0) + (e.drinks||0) + (e.singer||0) + (e.singerTip||0), 0);
+  const totalMiscOnly = active.reduce((s,e) => s + (e.misc||0) + (e.drinks||0), 0);
+  // miscItems breakdown
+  const miscCats = { food:0, drinks:0, deco:0, hygiene:0, repair:0, other:0 };
+  active.forEach(e => {
+    (e.miscItems||[]).forEach(item => {
+      miscCats[item.cat] = (miscCats[item.cat]||0) + (item.amount||0);
+      // amount not in cat goes to other
+    });
+    // unitemized misc goes to 'other'
+    const itemized = (e.miscItems||[]).reduce((s,i)=>s+(i.amount||0),0);
+    const unitemized = (e.misc||0) - itemized;
+    if (unitemized > 0) miscCats.other += unitemized;
+  });
   const fixedTotal = d.fixedItems.filter(f => !['prevBalance','cashFloat'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
-  const advancesTotal = d.advances.reduce((s,a) => s+a.amount, 0);
+  const advancesTotal = d.advances.reduce((s,a) => s+a.amount, 0);  // 追蹤用，不計入支出（費用已記在日結雜支）
   const vendorTotal = (d.vendorPayments||[]).reduce((s,v) => s+v.amount, 0);
 
   // PT salary from ptShifts
@@ -2353,11 +2685,11 @@ function calcMonthStats(key) {
   });
 
   const totalLabor = ptSalary + ftSalary;
-  const totalExpense = totalMisc + totalLabor + fixedTotal + advancesTotal + vendorTotal;
+  const totalExpense = totalMisc + totalLabor + fixedTotal + vendorTotal;  // 代墊款不重複計算
   const netProfit = totalRevenue - totalExpense;
   const profitRate = totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0;
 
-  return { totalRevenue, totalMisc, fixedTotal, advancesTotal, vendorTotal, ptSalary, ftSalary, totalLabor, totalExpense, netProfit, profitRate, ptMap, active };
+  return { totalRevenue, totalSinger, totalMisc, totalMiscOnly, miscCats, fixedTotal, advancesTotal, vendorTotal, ptSalary, ftSalary, totalLabor, totalExpense, netProfit, profitRate, ptMap, active };
 }
 
 function calcPtMonthly(key) {
@@ -2429,7 +2761,9 @@ function renderSalary() {
       const sh = (e.ptShifts||[]).find(p => p.name === emp.name);
       return s + (sh ? sh.bonus||0 : 0);
     }, 0) : 0;
-    const total = isFT ? (emp.salary||0) + ftBonus : (emp.hourly||0) * ptData.hours + ptData.bonus + (emp.salary||0);
+    const ftIns = isFT ? (emp.laborIns||0) + (emp.healthIns||0) : 0;
+    const ptIns = !isFT ? (emp.laborIns||0) + (emp.healthIns||0) : 0;
+    const total = isFT ? (emp.salary||0) + ftBonus - ftIns : (emp.hourly||0) * ptData.hours + ptData.bonus + (emp.salary||0) - ptIns;
 
     empGrid.innerHTML += `
       <div class="emp-card ${isFT?'ft':''}">
@@ -2448,6 +2782,18 @@ function renderSalary() {
           <div class="emp-stat-row">
             <span class="emp-stat-label">本月獎金</span>
             <span class="emp-stat-value td-gold">+${fmtRaw(ftBonus)}</span>
+          </div>
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">勞保費（自付）</span>
+            <div class="inline-edit">
+              <input type="number" value="${emp.laborIns||0}" onchange="updateFTIns('${emp.name}','labor',this.value)" style="width:80px;padding:4px 8px;">
+            </div>
+          </div>
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">健保費（自付）</span>
+            <div class="inline-edit">
+              <input type="number" value="${emp.healthIns||0}" onchange="updateFTIns('${emp.name}','health',this.value)" style="width:80px;padding:4px 8px;">
+            </div>
           </div>
         ` : `
           <div class="emp-stat-row">
@@ -2472,6 +2818,24 @@ function renderSalary() {
           <div class="emp-stat-row">
             <span class="emp-stat-label">累計獎金</span>
             <span class="emp-stat-value td-gold">+${fmtRaw(ptData.bonus)}</span>
+          </div>
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">固定薪資</span>
+            <div class="inline-edit">
+              <input type="number" value="${emp.salary||0}" onchange="updatePTSalary('${emp.name}', this.value)" style="width:90px;padding:4px 8px;">
+            </div>
+          </div>
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">勞保費（自付）</span>
+            <div class="inline-edit">
+              <input type="number" value="${emp.laborIns||0}" onchange="updatePTIns('${emp.name}','labor',this.value)" style="width:80px;padding:4px 8px;">
+            </div>
+          </div>
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">健保費（自付）</span>
+            <div class="inline-edit">
+              <input type="number" value="${emp.healthIns||0}" onchange="updatePTIns('${emp.name}','health',this.value)" style="width:80px;padding:4px 8px;">
+            </div>
           </div>
         `}
         <div class="emp-total">
@@ -2512,7 +2876,7 @@ function renderSalary() {
       </tr>`;
   });
   document.getElementById('salaryTableFoot').innerHTML = `
-    <td colspan="7" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">總人事費用</td>
+    <td colspan="8" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">總實發金額</td>
     <td class="td-right" style="font-size:16px;">${fmtRaw(grandTotal)}</td>
     <td></td>`;
 
@@ -2553,10 +2917,35 @@ function updatePTHourly(name, val) {
   const emp = d.ptStaff.find(e => e.name === name);
   if (emp) { emp.hourly = +val; saveAll(); toast('已更新 ' + name + ' 時薪'); }
 }
+function updatePTSalary(name, val) {
+  const d = getMonthData(currentMonth);
+  const emp = d.ptStaff.find(e => e.name === name);
+  if (emp) { emp.salary = +val; saveAll(); renderSalary(); toast('已更新 ' + name + ' 固定薪資'); }
+}
+function updatePTIns(name, type, val) {
+  const d = getMonthData(currentMonth);
+  const emp = d.ptStaff.find(e => e.name === name);
+  if (!emp) return;
+  if (type === 'labor')  emp.laborIns  = +val;
+  if (type === 'health') emp.healthIns = +val;
+  saveAll();
+  renderSalary();
+  toast('已更新 ' + name + ' ' + (type==='labor'?'勞保':'健保') + '費');
+}
 function updateFTSalary(name, val) {
   const d = getMonthData(currentMonth);
   const emp = d.ftStaff.find(e => e.name === name);
   if (emp) { emp.salary = +val; saveAll(); toast('已更新 ' + name + ' 月薪'); }
+}
+function updateFTIns(name, type, val) {
+  const d = getMonthData(currentMonth);
+  const emp = d.ftStaff.find(e => e.name === name);
+  if (!emp) return;
+  if (type === 'labor')  emp.laborIns  = +val;
+  if (type === 'health') emp.healthIns = +val;
+  saveAll();
+  renderSalary();
+  toast('已更新 ' + name + ' ' + (type==='labor'?'勞保':'健保') + '費');
 }
 
 function saveBonusConfig() {
@@ -2632,10 +3021,10 @@ function renderPayments() {
       <div class="kpi-value gold">${fmtRaw(vndTotal)}</div>
       <div class="kpi-sub">${(d.vendorPayments||[]).length} 筆</div>
     </div>
-    <div class="kpi-card" style="--accent:var(--red)">
-      <div class="kpi-label">合計支出</div>
-      <div class="kpi-value red">${fmtRaw(advTotal + vndTotal)}</div>
-      <div class="kpi-sub">代墊 + 廠商</div>
+    <div class="kpi-card" style="--accent:var(--blue)">
+      <div class="kpi-label">代墊款待匯</div>
+      <div class="kpi-value">${fmtRaw(advTotal)}</div>
+      <div class="kpi-sub">月底需匯款給代墊人</div>
     </div>
     <div class="kpi-card" style="--accent:var(--green)">
       <div class="kpi-label">廠商數</div>
@@ -2676,6 +3065,12 @@ function renderPayments() {
         <td><button class="btn btn-danger btn-sm" onclick="delVendor(${i})">✕</button></td>
       </tr>`;
   });
+
+  // Fixed items
+  renderFixedItems();
+
+  // Misc items
+  renderMiscItems();
 
   // Vendor category chart
   const catTotals = {};
@@ -2824,6 +3219,23 @@ function renderAnalysis() {
           if (dow === 5 || dow === 6) return 'rgba(180,142,240,0.7)';
           if (dow === 0) return 'rgba(200,144,58,0.7)';
           return 'rgba(106,171,247,0.6)';
+        },
+        {
+            "date": "2026-03-30",
+            "dayName": "Mon",
+            "revenue": 50984,
+            "misc": 0,
+            "drinks": 0,
+            "singer": 3000,
+            "singerTip": 0,
+            "extraIncome": 0,
+            "note": "",
+            "closed": false,
+            "ptShifts": [
+                {"name": "芷柔", "hourly": 200, "hours": 7, "bonus": 897},
+                {"name": "Hsu",  "hourly": 0,   "hours": 8, "bonus": 1025},
+                {"name": "Pino", "hourly": 0,   "hours": 8, "bonus": 1026}
+            ]
         }),
         borderRadius: 4,
       }]
@@ -2853,14 +3265,20 @@ function renderAnalysis() {
   });
 
   // Expense pie
-  const expData = [
-    { label:'歌手費用', val: active.reduce((s,e)=>s+(e.singer||0),0), color:'#9B72CF' },
-    { label:'日結酒水', val: active.reduce((s,e)=>s+(e.drinks||0),0), color:'#C8903A' },
-    { label:'日結雜支', val: active.reduce((s,e)=>s+(e.misc||0),0), color:'#6AABF7' },
-    { label:'人事費用', val: stats.totalLabor, color:'#56C97B' },
-    { label:'固定支出', val: stats.fixedTotal, color:'#E8C07A' },
-    { label:'廠商貨款', val: stats.vendorTotal, color:'#FF3C6E' },
-  ].filter(x => x.val > 0);
+  // Build expense breakdown for chart
+  const expData = [];
+  expData.push({ label:'歌手費用', val: stats.totalSinger, color:'#9B72CF' });
+  expData.push({ label:'日結酒水', val: active.reduce((s,e)=>s+(e.drinks||0),0), color:'#C8903A' });
+  expData.push({ label:'日結雜支', val: active.reduce((s,e)=>s+(e.misc||0),0), color:'#6AABF7' });
+  expData.push({ label:'人事費用', val: stats.totalLabor, color:'#56C97B' });
+  const _fixedCatTmp = {};
+  (d.fixedItems||[]).filter(f => !FIXED_NON_EXPENSE.includes(f.cat))
+    .forEach(f => { _fixedCatTmp[f.cat] = (_fixedCatTmp[f.cat]||0) + f.amount; });
+  Object.entries(_fixedCatTmp).forEach(function(entry) {
+    if (entry[1] > 0) expData.push({ label: FIXED_CAT_LABELS[entry[0]]||entry[0], val: entry[1], color: FIXED_CAT_COLORS[entry[0]]||'#88785A' });
+  });
+  expData.push({ label:'廠商貨款', val: stats.vendorTotal, color:'#FF3C6E' });
+  const expDataFiltered = expData.filter(x => x.val > 0);
 
   destroyChart('expenseChart');
   const ctx3 = document.getElementById('expenseChart').getContext('2d');
@@ -2990,19 +3408,21 @@ function generateReport() {
   document.getElementById('reportGenTime').textContent = new Date().toLocaleString('zh-TW');
 
   // Aggregate stats
-  let totRev=0, totExp=0, totLabor=0, totFixed=0, totMisc=0, totAdv=0, totVnd=0, totNet=0;
+  let totRev=0, totExp=0, totLabor=0, totFixed=0, totMisc=0, totMiscOnly=0, totSinger=0, totAdv=0, totVnd=0, totNet=0;
   let allEntries = [];
 
   months.forEach(m => {
     const s = calcMonthStats(m);
-    totRev += s.totalRevenue;
-    totExp += s.totalExpense;
-    totLabor += s.totalLabor;
-    totFixed += s.fixedTotal;
-    totMisc += s.totalMisc;
-    totAdv += s.advancesTotal;
-    totVnd += s.vendorTotal;
-    totNet += s.netProfit;
+    totRev      += s.totalRevenue;
+    totExp      += s.totalExpense;
+    totLabor    += s.totalLabor;
+    totFixed    += s.fixedTotal;
+    totMisc     += s.totalMisc;
+    totMiscOnly += s.totalMiscOnly;
+    totSinger   += s.totalSinger;
+    totAdv      += s.advancesTotal;
+    totVnd      += s.vendorTotal;
+    totNet      += s.netProfit;
     const md = getMonthData(m);
     allEntries = allEntries.concat(md.entries.filter(e=>!e.closed));
   });
@@ -3030,15 +3450,31 @@ function generateReport() {
 
   // Waterfall
   const wfMax = totRev;
+  // Break down fixed expenses by category
+  const fixedByCat = {};
+  months.forEach(m => {
+    (getMonthData(m).fixedItems||[])
+      .filter(f => !FIXED_NON_EXPENSE.includes(f.cat))
+      .forEach(f => { fixedByCat[f.cat] = (fixedByCat[f.cat]||0) + f.amount; });
+  });
+
+  const fixedWfItems = Object.entries(fixedByCat)
+    .sort((a,b) => b[1]-a[1])
+    .map(([cat, amt]) => ({
+      label: FIXED_CAT_LABELS[cat] || cat,
+      val: -amt,
+      color: FIXED_CAT_COLORS[cat] || '#88785A'
+    }));
+
   const items = [
-    { label:'總營收', val:totRev, color:'var(--gold-l)', isTotal:true },
-    { label:'歌手費', val:-totMisc * 0.5, color:'var(--purple)' },
-    { label:'酒水 / 雜支', val:-totMisc * 0.5, color:'var(--blue)' },
-    { label:'人事費用', val:-totLabor, color:'var(--green)' },
-    { label:'廠商貨款', val:-totVnd, color:'#E8C07A' },
-    { label:'固定支出', val:-totFixed, color:'#88785A' },
-    { label:'代墊款', val:-totAdv, color:'var(--red)' },
-  ];
+    { label:'總營收',  val:totRev,      color:'var(--gold-l)', isTotal:true },
+    { label:'歌手費',  val:-totSinger,  color:'var(--purple)' },
+    { label:'日結雜支', val:-totMiscOnly, color:'var(--blue)' },
+    { label:'人事費用', val:-totLabor,   color:'var(--green)' },
+    { label:'廠商貨款', val:-totVnd,     color:'#E8C07A' },
+    ...fixedWfItems,
+    // 代墊款不列入收支（費用已記在日結雜支，此處只追蹤匯款對象）
+  ].filter(x => x.val !== 0);
 
   const wf = document.getElementById('reportWaterfall');
   wf.innerHTML = items.map(item => {
@@ -3063,7 +3499,7 @@ function generateReport() {
     { label:'固定支出', val:totFixed, color:'#E8C07A' },
     { label:'日常可變', val:totMisc, color:'#6AABF7' },
     { label:'廠商貨款', val:totVnd, color:'#C8903A' },
-    { label:'代墊款', val:totAdv, color:'#FF3C6E' },
+    // 代墊款不計入支出圓餅圖
   ].filter(x => x.val > 0);
 
   const ctx5 = document.getElementById('reportExpenseChart').getContext('2d');
@@ -3125,7 +3561,7 @@ function generateReport() {
   const vndAll = months.flatMap(m => (getMonthData(m).vendorPayments||[]));
   payDiv.innerHTML = `
     <div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;letter-spacing:0.1em;text-transform:uppercase;">代墊款 — 合計 ${fmtRaw(advAll.reduce((s,a)=>s+a.amount,0))}</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;letter-spacing:0.1em;text-transform:uppercase;">代墊款匯款追蹤 — 合計 ${fmtRaw(advAll.reduce((s,a)=>s+a.amount,0))}（不計入支出）</div>
       ${advAll.length ? `<table><thead><tr><th>日期</th><th>代墊人</th><th>說明</th><th class="td-right">金額</th></tr></thead><tbody>
       ${advAll.map(a=>`<tr><td class="td-mono" style="font-size:11px">${a.date}</td><td>${a.name}</td><td class="td-muted">${a.note}</td><td class="td-right td-gold">${fmtRaw(a.amount)}</td></tr>`).join('')}
       </tbody></table>` : '<div style="color:var(--muted);font-size:13px">本月無代墊款</div>'}
@@ -3323,13 +3759,17 @@ function updateFTYearOptions() { calcFTBonus(); }
 function showModule(name) {
   document.querySelectorAll('.module').forEach(m => m.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.querySelectorAll('.mobile-nav-item').forEach(n => n.classList.remove('active'));
   document.getElementById('module-' + name).classList.add('active');
   document.getElementById('nav-' + name).classList.add('active');
+  const mn = document.getElementById('mnav-' + name);
+  if (mn) mn.classList.add('active');
 
   if (name === 'salary') { renderSalary(); renderFTBonusHistory(); }
   else if (name === 'payments') renderPayments();
   else if (name === 'analysis') renderAnalysis();
   else if (name === 'report') generateReport();
+  else if (name === 'tax') { taxSelectedMonths = new Set(); renderTax(); }
 }
 
 function changeMonth(val) {
@@ -3373,6 +3813,15 @@ function buildMonthSelect() {
       changeMonth(this.value);
     }
   };
+
+  // Sync mobile month select
+  const msel = document.getElementById('mobileMonthSelect');
+  if (msel) {
+    msel.innerHTML = months.map(m =>
+      `<option value="${m}" ${m===currentMonth?'selected':''}>${m}</option>`
+    ).join('');
+    msel.onchange = function() { changeMonth(this.value); };
+  }
 }
 
 function toast(msg) {
@@ -3429,14 +3878,12 @@ async function gsGet(action) {
   }
 }
 
+// Apps Script POST via GET+payload to avoid CORS preflight issues
 async function gsPost(body) {
   if (!GS_URL) return null;
   try {
-    const res = await fetch(GS_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+    const payload = encodeURIComponent(JSON.stringify(body));
+    const res = await fetch(GS_URL + '?payload=' + payload);
     return await res.json();
   } catch (e) {
     return { ok: false, error: e.message };
@@ -3564,13 +4011,335 @@ function checkPw() {
 }
 
 // Auto-unlock if already authenticated this session
-if (sessionStorage.getItem('dsAuth') === '1') {
-  document.getElementById('pwScreen').style.display = 'none';
-} else {
-  window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', () => {
+  const screen = document.getElementById('pwScreen');
+  if (!screen) return;
+  if (sessionStorage.getItem('dsAuth') === '1') {
+    screen.style.display = 'none';
+  } else {
     const inp = document.getElementById('pwInput');
     if (inp) setTimeout(() => inp.focus(), 100);
+  }
+});
+
+
+
+// ─── MISC ITEMS ──────────────────────────────────────────────
+const MISC_CAT_LABELS = {"food": "食材耗材", "drinks": "酒水原料", "deco": "裝飾佈置", "hygiene": "清潔衛生", "repair": "設備維修", "other": "其他"};
+const MISC_CAT_COLORS = {"food": "#56C97B", "drinks": "#6AABF7", "deco": "#B48EF0", "hygiene": "#E8C07A", "repair": "#FF3C6E", "other": "#88785A"};
+
+function addMiscItem() {
+  const date   = document.getElementById('mi-date').value;
+  const desc   = document.getElementById('mi-desc').value.trim();
+  const cat    = document.getElementById('mi-cat').value;
+  const amount = +document.getElementById('mi-amount').value;
+  if (!date || !desc || !amount) { toast('請填寫日期、品項、金額'); return; }
+
+  const d = getMonthData(currentMonth);
+  if (!d.miscItems) d.miscItems = [];
+  d.miscItems.push({ date, desc, cat, amount });
+  d.miscItems.sort((a,b) => a.date.localeCompare(b.date));
+  saveAll();
+  renderMiscItems();
+  document.getElementById('mi-desc').value = '';
+  document.getElementById('mi-amount').value = '';
+  toast('✓ 雜支明細已新增');
+}
+
+function delMiscItem(i) {
+  const d = getMonthData(currentMonth);
+  d.miscItems.splice(i, 1);
+  saveAll(); renderMiscItems();
+}
+
+function renderMiscItems() {
+  const d = getMonthData(currentMonth);
+  const items = d.miscItems || [];
+  const total = items.reduce((s,i)=>s+i.amount,0);
+  document.getElementById('miscTotalChip').textContent = 'NT$' + fmtRaw(total);
+
+  // Category totals
+  const catTotals = {};
+  items.forEach(item => { catTotals[item.cat] = (catTotals[item.cat]||0) + item.amount; });
+
+  // Breakdown
+  const bd = document.getElementById('miscCatBreakdown');
+  if (bd) {
+    bd.innerHTML = Object.entries(catTotals).map(([cat,amt]) => {
+      const pct = total > 0 ? (amt/total*100).toFixed(1) : 0;
+      const color = MISC_CAT_COLORS[cat] || '#88785A';
+      return `<div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+          <span style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:\${color};display:inline-block"></span>
+            \${MISC_CAT_LABELS[cat]||cat}
+          </span>
+          <span style="font-family:'Space Mono',monospace;font-size:12px;color:\${color}">\${fmtRaw(amt)}</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-fill" style="width:\${pct}%;background:\${color}"></div></div>
+      </div>`;
+    }).join('');
+  }
+
+  // Chart
+  destroyChart('miscCatChart');
+  const ctx = document.getElementById('miscCatChart');
+  if (ctx && Object.keys(catTotals).length > 0) {
+    charts['miscCatChart'] = new Chart(ctx.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(catTotals).map(c => MISC_CAT_LABELS[c]||c),
+        datasets: [{ data: Object.values(catTotals),
+          backgroundColor: Object.keys(catTotals).map(c => MISC_CAT_COLORS[c]||'#88785A'),
+          borderWidth: 2, borderColor: '#1A1208' }]
+      },
+      options: { responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ color:'#88785A', font:{size:11} } } } }
+    });
+  }
+
+  // Table
+  const tbody = document.getElementById('miscItemsBody');
+  if (!tbody) return;
+  tbody.innerHTML = items.map((item,i) => {
+    const color = MISC_CAT_COLORS[item.cat]||'#88785A';
+    return `<tr>
+      <td class="td-mono" style="font-size:12px">\${item.date}</td>
+      <td>\${item.desc}</td>
+      <td><span class="misc-cat-badge" style="background:\${color}22;color:\${color};border:1px solid \${color}44">\${MISC_CAT_LABELS[item.cat]||item.cat}</span></td>
+      <td class="td-right td-gold">\${fmtRaw(item.amount)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="delMiscItem(\${i})">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+
+// ═══════════════════════════════════════════════════════
+// TAX DECLARATION MODULE
+// ═══════════════════════════════════════════════════════
+
+let taxSelectedMonths = new Set();
+
+function renderTax() {
+  const year = document.getElementById('taxYear').value;
+
+  // Build available months for this year
+  const yearMonths = Object.keys(allData)
+    .filter(m => m.startsWith(year))
+    .sort();
+
+  // Month selector grid
+  const grid = document.getElementById('taxMonthsGrid');
+  if (grid) {
+    grid.innerHTML = yearMonths.map(m => {
+      const checked = taxSelectedMonths.has(m) || taxSelectedMonths.size === 0;
+      if (taxSelectedMonths.size === 0 && checked) taxSelectedMonths.add(m);
+      return `<label style="display:flex;align-items:center;gap:6px;background:var(--card);padding:8px 14px;border-radius:6px;cursor:pointer;border:1px solid var(--border);font-size:13px;">
+        <input type="checkbox" ${taxSelectedMonths.has(m)?'checked':''} onchange="toggleTaxMonth('${m}', this.checked)" style="width:auto;">
+        ${m}
+      </label>`;
+    }).join('');
+  }
+
+  // Aggregate salary per employee across selected months
+  const empSalary = {};  // name → { gross, ins, type }
+  const selectedMonths = yearMonths.filter(m => taxSelectedMonths.has(m));
+
+  selectedMonths.forEach(monthKey => {
+    const d = getMonthData(monthKey);
+    const active = d.entries.filter(e => !e.closed);
+    const ptMap = {};
+    active.forEach(e => {
+      (e.ptShifts||[]).forEach(s => {
+        if (!ptMap[s.name]) ptMap[s.name] = { hours:0, bonus:0, hourly:s.hourly };
+        ptMap[s.name].hours += s.hours||0;
+        ptMap[s.name].bonus += s.bonus||0;
+        if (s.hourly > 0) ptMap[s.name].hourly = s.hourly;
+      });
+    });
+
+    // PT staff
+    Object.entries(ptMap).forEach(([name, v]) => {
+      if (v.hourly === 0) return; // skip FT entries in ptShifts
+      if (!empSalary[name]) empSalary[name] = { gross:0, ins:0, type:'PT' };
+      empSalary[name].gross += v.hourly * v.hours + v.bonus;
+      // PT insurance: look up from ptStaff
+      const ptEmpData = (getMonthData(monthKey).ptStaff||[]).find(p => p.name === name);
+      if (ptEmpData) empSalary[name].ins += (ptEmpData.laborIns||0) + (ptEmpData.healthIns||0);
+    });
+
+    // FT staff
+    (d.ftStaff||[]).forEach(ft => {
+      const ftBonus = active.reduce((s,e) => {
+        const sh = (e.ptShifts||[]).find(p => p.name === ft.name);
+        return s + (sh ? sh.bonus||0 : 0);
+      }, 0);
+      if (!empSalary[ft.name]) empSalary[ft.name] = { gross:0, ins:0, type:'正職' };
+      empSalary[ft.name].gross += (ft.salary||0) + ftBonus;
+      empSalary[ft.name].ins   += (ft.laborIns||0) + (ft.healthIns||0);
+    });
   });
+
+  // Render table
+  const tbody = document.getElementById('taxTableBody');
+  const foot  = document.getElementById('taxTableFoot');
+  if (!tbody) return;
+
+  const rows = Object.entries(empSalary).sort((a,b) => b[1].gross - a[1].gross);
+  let totalGross=0, totalIns=0, totalIncome=0;
+
+  tbody.innerHTML = rows.map(([name, v], i) => {
+    const income = Math.max(0, v.gross - v.ins);
+    // 5% withholding for FT; PT under threshold 免扣繳
+    const isFT = v.type === '正職';
+    totalGross  += v.gross;
+    totalIns    += v.ins;
+    totalIncome += income;
+    return `<tr>
+      <td class="td-mono" style="color:var(--muted)">${String(i+1).padStart(2,'0')}</td>
+      <td><strong>${name}</strong></td>
+      <td><span class="chip ${isFT?'chip-gold':'chip-blue'}">${v.type}</span></td>
+      <td class="td-right td-mono">${fmtRaw(v.gross)}</td>
+      <td class="td-right td-red">${v.ins > 0 ? '-'+fmtRaw(v.ins) : '—'}</td>
+      <td class="td-right td-gold">${fmtRaw(income)}</td>
+      <td class="td-muted" style="font-size:11px;">${isFT?'正職月薪制':'時薪制'}</td>
+    </tr>`;
+  }).join('');
+
+  if (foot) foot.innerHTML = `
+    <td colspan="3">合計（${rows.length}人）</td>
+    <td class="td-right">${fmtRaw(totalGross)}</td>
+    <td class="td-right td-red">${totalIns>0?'-'+fmtRaw(totalIns):'—'}</td>
+    <td class="td-right td-gold" style="font-size:16px;">${fmtRaw(totalIncome)}</td>
+    <td></td>`;
+
+  const chip = document.getElementById('taxTotalChip');
+  if (chip) chip.textContent = `${year}年 應申報所得 NT$${fmtRaw(totalIncome)}`;
+}
+
+function toggleTaxMonth(month, checked) {
+  if (checked) taxSelectedMonths.add(month);
+  else taxSelectedMonths.delete(month);
+  renderTax();
+}
+
+function exportTaxCSV() {
+  const year = document.getElementById('taxYear').value;
+  const rows = document.querySelectorAll('#taxTableBody tr');
+  let csv = '序號,姓名,身分類型,薪資合計,勞健保自付,應申報所得,備注\n';
+  rows.forEach(row => {
+    const cells = Array.from(row.querySelectorAll('td')).map(td => td.textContent.trim().replace(/,/g,''));
+    csv += cells.join(',') + '\n';
+  });
+  // Footer
+  const foot = document.getElementById('taxTableFoot');
+  if (foot) csv += Array.from(foot.querySelectorAll('td')).map(td=>td.textContent.trim().replace(/,/g,'')).join(',') + '\n';
+
+  const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `薪資申報_${year}年.csv`;
+  a.click();
+  toast('✓ 薪資申報表已匯出');
+}
+
+
+// ─── FIXED ITEMS ─────────────────────────────────────────────
+function addFixedItem() {
+  const cat    = document.getElementById('fi-cat').value;
+  const amount = +document.getElementById('fi-amount').value;
+  const note   = document.getElementById('fi-note').value.trim();
+  const date   = document.getElementById('fi-date').value;
+  if (!amount || !date) { toast('請填寫金額和日期'); return; }
+  const d = getMonthData(currentMonth);
+  d.fixedItems.push({ cat, amount, note, date });
+  d.fixedItems.sort((a,b) => a.date.localeCompare(b.date));
+  saveAll();
+  renderFixedItems();
+  document.getElementById('fi-amount').value = '';
+  document.getElementById('fi-note').value   = '';
+  toast('✓ 固定支出已新增');
+}
+
+function delFixedItem(i) {
+  const d = getMonthData(currentMonth);
+  d.fixedItems.splice(i, 1);
+  saveAll(); renderFixedItems();
+}
+
+function renderFixedItems() {
+  const d = getMonthData(currentMonth);
+  const items = d.fixedItems || [];
+  const expItems = items.filter(f => !FIXED_NON_EXPENSE.includes(f.cat));
+  const total = expItems.reduce((s,f) => s+f.amount, 0);
+
+  const chip = document.getElementById('fixedTotalChip');
+  if (chip) chip.textContent = 'NT$' + fmtRaw(total);
+
+  // Category totals
+  const catTotals = {};
+  expItems.forEach(f => { catTotals[f.cat] = (catTotals[f.cat]||0) + f.amount; });
+
+  // Breakdown
+  const bd = document.getElementById('fixedCatBreakdown');
+  if (bd) {
+    bd.innerHTML = Object.entries(catTotals).map(([cat, amt]) => {
+      const pct   = total > 0 ? (amt/total*100).toFixed(1) : 0;
+      const color = FIXED_CAT_COLORS[cat] || '#88785A';
+      const label = FIXED_CAT_LABELS[cat] || cat;
+      const isOcc = FIXED_CAT_OCCASIONAL[cat];
+      return `<div style="margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+          <span style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px;">
+            <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block"></span>
+            ${label}${isOcc?' <span style="font-size:9px;color:var(--muted)">(偶發)</span>':''}
+          </span>
+          <span style="font-family:'Space Mono',monospace;font-size:12px;color:${color}">${fmtRaw(amt)}</span>
+        </div>
+        <div class="progress-wrap"><div class="progress-fill" style="width:${pct}%;background:${color}"></div></div>
+      </div>`;
+    }).join('') || '<div style="color:var(--muted);font-size:13px;">尚未新增固定支出</div>';
+  }
+
+  // Chart
+  destroyChart('fixedCatChart');
+  const ctx = document.getElementById('fixedCatChart');
+  if (ctx && Object.keys(catTotals).length > 0) {
+    charts['fixedCatChart'] = new Chart(ctx.getContext('2d'), {
+      type: 'doughnut',
+      data: {
+        labels: Object.keys(catTotals).map(c => FIXED_CAT_LABELS[c]||c),
+        datasets: [{ data: Object.values(catTotals),
+          backgroundColor: Object.keys(catTotals).map(c => FIXED_CAT_COLORS[c]||'#88785A'),
+          borderWidth: 2, borderColor: '#1A1208' }]
+      },
+      options: { responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ color:'#88785A', font:{size:11} } } } }
+    });
+  }
+
+  // Table
+  const tbody = document.getElementById('fixedItemsBody');
+  const foot  = document.getElementById('fixedItemsFoot');
+  if (!tbody) return;
+
+  tbody.innerHTML = items.map((f, i) => {
+    const color = FIXED_CAT_COLORS[f.cat] || '#88785A';
+    const label = FIXED_CAT_LABELS[f.cat] || f.cat;
+    const isNonExp = FIXED_NON_EXPENSE.includes(f.cat);
+    return `<tr>
+      <td class="td-mono" style="font-size:12px">${f.date}</td>
+      <td><span class="cat-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${label}</span></td>
+      <td class="td-muted">${f.note}</td>
+      <td class="td-right ${isNonExp?'td-mono':'td-gold'}">${fmtRaw(f.amount)}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="delFixedItem(${i})">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  if (foot) foot.innerHTML = `
+    <td colspan="3" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">固定支出合計</td>
+    <td class="td-right td-gold" style="font-size:15px;">${fmtRaw(total)}</td>
+    <td></td>`;
 }
 
 </script>
@@ -3611,6 +4380,40 @@ if (sessionStorage.getItem('dsAuth') === '1') {
     <div class="pw-error" id="pwError"></div>
   </div>
 </div>
+
+
+<!-- ─── MOBILE TOPBAR ───────────────────────────────── -->
+<div class="mobile-topbar">
+  <div class="brand">DRUNK SHELTER</div>
+  <select id="mobileMonthSelect" onchange="changeMonth(this.value)"></select>
+  <button class="btn btn-outline btn-sm" onclick="showSettings()" style="padding:6px 10px;font-size:11px;">⚙️</button>
+</div>
+
+<!-- ─── MOBILE BOTTOM NAV ───────────────────────────── -->
+<nav class="mobile-nav">
+  <div class="mobile-nav-items">
+    <button class="mobile-nav-item active" id="mnav-salary" onclick="showModule('salary')">
+      <span class="mn-icon">💰</span>
+      <span class="mn-label">薪資</span>
+    </button>
+    <button class="mobile-nav-item" id="mnav-payments" onclick="showModule('payments')">
+      <span class="mn-icon">🧾</span>
+      <span class="mn-label">代墊貨款</span>
+    </button>
+    <button class="mobile-nav-item" id="mnav-analysis" onclick="showModule('analysis')">
+      <span class="mn-icon">📈</span>
+      <span class="mn-label">業績</span>
+    </button>
+    <button class="mobile-nav-item" id="mnav-report" onclick="showModule('report')">
+      <span class="mn-icon">📄</span>
+      <span class="mn-label">股東報告</span>
+    </button>
+    <button class="mobile-nav-item" id="mnav-tax" onclick="showModule('tax')">
+      <span class="mn-icon">🏛</span>
+      <span class="mn-label">申報</span>
+    </button>
+  </div>
+</nav>
 
 </body>
 </html>
