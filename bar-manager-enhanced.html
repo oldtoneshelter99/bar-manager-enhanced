@@ -870,6 +870,7 @@ input[type=number] { font-family: 'Space Mono', monospace; }
     </div>
   </nav>
   <div class="sidebar-footer">
+    <button onclick="forceReseed()" style="width:100%;background:rgba(255,60,110,0.15);border:1px solid rgba(255,60,110,0.4);color:#FF3C6E;padding:8px;border-radius:6px;cursor:pointer;font-size:11px;letter-spacing:0.05em;margin-bottom:12px;">&#x1F504; 強制重新載入資料</button>
     <div class="venue">
       漢口街二段71號1樓<br>
       @drunk_shelter_hankou<br>
@@ -915,6 +916,10 @@ input[type=number] { font-family: 'Space Mono', monospace; }
         <div class="form-group">
           <label>當日總營收 (NT$)</label>
           <input id="ef-rev" type="number" placeholder="0" oninput="calcEntryBonus()">
+        </div>
+        <div class="form-group" style="max-width:110px;">
+          <label>來客數（人）</label>
+          <input id="ef-customers" type="number" placeholder="0" min="0">
         </div>
         <div class="form-group" style="max-width:140px;">
           <label>歌手費</label>
@@ -1002,6 +1007,8 @@ input[type=number] { font-family: 'Space Mono', monospace; }
               <th>日期</th>
               <th>星期</th>
               <th class="td-right">營收</th>
+              <th class="td-right">來客</th>
+              <th class="td-right">客單價</th>
               <th class="td-right">歌手費</th>
               <th class="td-right">雜支</th>
               <th class="td-right">獎金池</th>
@@ -1106,6 +1113,7 @@ input[type=number] { font-family: 'Space Mono', monospace; }
               <th class="td-right">工時薪資</th>
               <th class="td-right">月獎金</th>
               <th class="td-right">底薪</th>
+              <th class="td-right">季獎金</th>
               <th class="td-right">勞健保（扣）</th>
               <th class="td-right">實發金額</th>
               <th>備注</th>
@@ -1193,7 +1201,7 @@ input[type=number] { font-family: 'Space Mono', monospace; }
           <div class="form-row">
             <div class="form-group">
               <label>季度</label>
-              <select id="ft-quarter" onchange="calcFTBonus()">
+              <select id="ft-quarter" onchange="updateFTYearOptions()">
                 <option value="Q1">Q1（1–3月）</option>
                 <option value="Q2">Q2（4–6月）</option>
                 <option value="Q3" selected>Q3（7–9月）</option>
@@ -1203,8 +1211,10 @@ input[type=number] { font-family: 'Space Mono', monospace; }
             <div class="form-group">
               <label>年份</label>
               <select id="ft-year" onchange="updateFTYearOptions()">
-                <option value="2025" selected>2025</option>
-                <option value="2026">2026</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026" selected>2026</option>
+                <option value="2027">2027</option>
               </select>
             </div>
           </div>
@@ -1289,12 +1299,43 @@ input[type=number] { font-family: 'Space Mono', monospace; }
       </div>
       <div class="panel-body">
         <div style="background:var(--blue-bg);border:1px solid rgba(106,171,247,0.25);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--muted);line-height:1.7;">
-          💡 代墊款費用已記入當日雜支，此處僅追蹤「誰墊了錢」，月底核算後匯款給代墊人。不重複計入月支出。
+          💡 代墊款直接計入月支出。月底核算後匯款給代墊人，即可清除記錄。
+        </div>
+        <div style="background:var(--blue-bg);border:1px solid rgba(106,171,247,0.25);border-radius:6px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--muted);line-height:1.7;">
+          💡 新增代墊款時，系統會自動依類別建立對應支出記錄（雜支明細或固定支出），不需輸入兩次。
         </div>
         <div class="form-row">
           <div class="form-group">
             <label>代墊人</label>
             <input id="adv-name" placeholder="Debby / Pino...">
+          </div>
+          <div class="form-group" style="max-width:160px;">
+            <label>支出類別</label>
+            <select id="adv-cat">
+              <optgroup label="── 日結雜支 ──">
+                <option value="misc_food">食材耗材</option>
+                <option value="misc_drinks">酒水原料</option>
+                <option value="misc_deco">裝飾佈置</option>
+                <option value="misc_hygiene">清潔衛生</option>
+                <option value="misc_other">雜支其他</option>
+              </optgroup>
+              <optgroup label="── 固定支出 ──">
+                <option value="fixed_equipment">設備維修採購</option>
+                <option value="fixed_ads">廣告費</option>
+                <option value="fixed_utilities">水電網路</option>
+                <option value="fixed_cleaning">清潔消毒服務</option>
+                <option value="fixed_accounting">會計費</option>
+                <option value="fixed_insurance">保險/消防</option>
+                <option value="fixed_miscMonthly">其他固定支出</option>
+              </optgroup>
+              <optgroup label="── 廠商貨款 ──">
+                <option value="vendor_alcohol">酒水廠商</option>
+                <option value="vendor_food">食材廠商</option>
+                <option value="vendor_supplies">耗材廠商</option>
+                <option value="vendor_equipment">設備廠商</option>
+                <option value="vendor_other">其他廠商</option>
+              </optgroup>
+            </select>
           </div>
           <div class="form-group">
             <label>金額</label>
@@ -1313,7 +1354,7 @@ input[type=number] { font-family: 'Space Mono', monospace; }
         <div class="tbl-wrap">
           <table>
             <thead>
-              <tr><th>日期</th><th>代墊人</th><th>說明</th><th class="td-right">金額</th><th></th></tr>
+              <tr><th>日期</th><th>代墊人</th><th>說明</th><th>支出類別</th><th class="td-right">金額</th><th></th></tr>
             </thead>
             <tbody id="advanceTableBody"></tbody>
           </table>
@@ -1656,6 +1697,12 @@ input[type=number] { font-family: 'Space Mono', monospace; }
         <div class="chart-wrap"><canvas id="reportRevenueChart"></canvas></div>
       </div>
 
+      <!-- 季度總覽 -->
+      <div class="report-section">
+        <div class="report-section-title">📊 季度 / 月份總覽表</div>
+        <div class="tbl-wrap" id="reportQuarterTable"></div>
+      </div>
+
       <!-- 薪資人事 -->
       <div class="report-section">
         <div class="report-section-title">👥 人事費用</div>
@@ -1763,7 +1810,25 @@ input[type=number] { font-family: 'Space Mono', monospace; }
 
 <div class="toast" id="toast"></div>
 
+
+<script type="application/json" id="historicalDataJSON">
+{"2024-08": {"entries": [{"date": "2024-08-15", "dayName": "Mon", "revenue": 519018, "customers": 28, "misc": 72563, "drinks": 0, "singer": 43800, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$685 日均28人 營業27天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 27, "_avgDailyCust": 28, "_avgTicket": 685, "_netProfit": -22381, "_labor": 104129}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2024-08-05"}, {"cat": "utilities", "amount": 4109, "note": "水電網路費", "date": "2024-08-10"}, {"cat": "cardFee", "amount": 4421, "note": "信用卡/LinePay手續費", "date": "2024-08-30"}, {"cat": "ads", "amount": 6675, "note": "廣告行銷費用", "date": "2024-08-15"}, {"cat": "miscMonthly", "amount": 104129, "note": "人事費用（歷史彙總）", "date": "2024-08-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 100901, "note": "酒水費用", "date": "2024-08-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2024-09": {"entries": [{"date": "2024-09-15", "dayName": "Mon", "revenue": 705224, "customers": 30, "misc": 71693, "drinks": 0, "singer": 51300, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$772 日均30人 營業30天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 30, "_avgDailyCust": 30, "_avgTicket": 772, "_netProfit": 107269, "_labor": 120410}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2024-09-05"}, {"cat": "utilities", "amount": 5527, "note": "水電網路費", "date": "2024-09-10"}, {"cat": "cardFee", "amount": 9565, "note": "信用卡/LinePay手續費", "date": "2024-09-30"}, {"cat": "ads", "amount": 30427, "note": "廣告行銷費用", "date": "2024-09-15"}, {"cat": "accounting", "amount": 6033, "note": "會計&稅款費用", "date": "2024-09-01"}, {"cat": "insurance", "amount": 5000, "note": "消防檢修", "date": "2024-09-01"}, {"cat": "miscMonthly", "amount": 120410, "note": "人事費用（歷史彙總）", "date": "2024-09-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 93199, "note": "酒水費用", "date": "2024-09-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2024-10": {"entries": [{"date": "2024-10-15", "dayName": "Mon", "revenue": 803726, "customers": 32, "misc": 47265, "drinks": 0, "singer": 56700, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$810 日均32人 營業31天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 31, "_avgDailyCust": 32, "_avgTicket": 810, "_netProfit": 174467, "_labor": 145201}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2024-10-05"}, {"cat": "utilities", "amount": 11665, "note": "水電網路費", "date": "2024-10-10"}, {"cat": "cardFee", "amount": 12088, "note": "信用卡/LinePay手續費", "date": "2024-10-30"}, {"cat": "ads", "amount": 19897, "note": "廣告行銷費用", "date": "2024-10-15"}, {"cat": "accounting", "amount": 2500, "note": "會計&稅款費用", "date": "2024-10-01"}, {"cat": "miscMonthly", "amount": 145201, "note": "人事費用（歷史彙總）", "date": "2024-10-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 129142, "note": "酒水費用", "date": "2024-10-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2024-11": {"entries": [{"date": "2024-11-15", "dayName": "Mon", "revenue": 1009119, "customers": 44, "misc": 122414, "drinks": 0, "singer": 61700, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$818 日均44人 營業28天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 28, "_avgDailyCust": 44, "_avgTicket": 818, "_netProfit": 251149, "_labor": 162348}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2024-11-05"}, {"cat": "utilities", "amount": 2629, "note": "水電網路費", "date": "2024-11-10"}, {"cat": "cardFee", "amount": 15153, "note": "信用卡/LinePay手續費", "date": "2024-11-30"}, {"cat": "ads", "amount": 21601, "note": "廣告行銷費用", "date": "2024-11-15"}, {"cat": "accounting", "amount": 2533, "note": "會計&稅款費用", "date": "2024-11-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2024-11-01"}, {"cat": "equipment", "amount": 52697, "note": "裝潢設備費", "date": "2024-11-01"}, {"cat": "miscMonthly", "amount": 162348, "note": "人事費用（歷史彙總）", "date": "2024-11-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 161291, "note": "酒水費用", "date": "2024-11-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2024-12": {"entries": [{"date": "2024-12-15", "dayName": "Mon", "revenue": 1022047, "customers": 37, "misc": 49577, "drinks": 0, "singer": 62400, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$882 日均37人 營業31天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 31, "_avgDailyCust": 37, "_avgTicket": 882, "_netProfit": 301055, "_labor": 182889}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2024-12-05"}, {"cat": "utilities", "amount": 4552, "note": "水電網路費", "date": "2024-12-10"}, {"cat": "cardFee", "amount": 15169, "note": "信用卡/LinePay手續費", "date": "2024-12-30"}, {"cat": "ads", "amount": 29330, "note": "廣告行銷費用", "date": "2024-12-15"}, {"cat": "accounting", "amount": 2500, "note": "會計&稅款費用", "date": "2024-12-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2024-12-01"}, {"cat": "hookah", "amount": 34884, "note": "水菸進貨", "date": "2024-12-10"}, {"cat": "miscMonthly", "amount": 182889, "note": "人事費用（歷史彙總）", "date": "2024-12-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 131390, "note": "酒水費用", "date": "2024-12-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-01": {"entries": [{"date": "2025-01-15", "dayName": "Mon", "revenue": 877417, "customers": 35, "misc": 54672, "drinks": 0, "singer": 58200, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$853 日均35人 營業29天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 29, "_avgDailyCust": 35, "_avgTicket": 853, "_netProfit": 153170, "_labor": 160419}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-01-05"}, {"cat": "utilities", "amount": 3066, "note": "水電網路費", "date": "2025-01-10"}, {"cat": "cardFee", "amount": 11501, "note": "信用卡/LinePay手續費", "date": "2025-01-30"}, {"cat": "ads", "amount": 28822, "note": "廣告行銷費用", "date": "2025-01-15"}, {"cat": "accounting", "amount": 2500, "note": "會計&稅款費用", "date": "2025-01-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-01-01"}, {"cat": "hookah", "amount": 8364, "note": "水菸進貨", "date": "2025-01-10"}, {"cat": "miscMonthly", "amount": 160419, "note": "人事費用（歷史彙總）", "date": "2025-01-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 123331, "note": "酒水費用", "date": "2025-01-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-02": {"entries": [{"date": "2025-02-15", "dayName": "Mon", "revenue": 812760, "customers": 34, "misc": 22586, "drinks": 0, "singer": 54000, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$864 日均34人 營業28天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 28, "_avgDailyCust": 34, "_avgTicket": 864, "_netProfit": 184386, "_labor": 156724}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-02-05"}, {"cat": "utilities", "amount": 10268, "note": "水電網路費", "date": "2025-02-10"}, {"cat": "cardFee", "amount": 11801, "note": "信用卡/LinePay手續費", "date": "2025-02-30"}, {"cat": "ads", "amount": 18289, "note": "廣告行銷費用", "date": "2025-02-15"}, {"cat": "accounting", "amount": 2500, "note": "會計&稅款費用", "date": "2025-02-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-02-01"}, {"cat": "miscMonthly", "amount": 156724, "note": "人事費用（歷史彙總）", "date": "2025-02-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 138345, "note": "酒水費用", "date": "2025-02-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-03": {"entries": [{"date": "2025-03-15", "dayName": "Mon", "revenue": 1010155, "customers": 40, "misc": 38355, "drinks": 0, "singer": 59100, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$815 日均40人 營業31天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 31, "_avgDailyCust": 40, "_avgTicket": 815, "_netProfit": 321335, "_labor": 168525}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-03-05"}, {"cat": "utilities", "amount": 5562, "note": "水電網路費", "date": "2025-03-10"}, {"cat": "cardFee", "amount": 14283, "note": "信用卡/LinePay手續費", "date": "2025-03-30"}, {"cat": "ads", "amount": 30661, "note": "廣告行銷費用", "date": "2025-03-15"}, {"cat": "accounting", "amount": 2500, "note": "會計&稅款費用", "date": "2025-03-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-03-01"}, {"cat": "hookah", "amount": 15100, "note": "水菸進貨", "date": "2025-03-10"}, {"cat": "miscMonthly", "amount": 168525, "note": "人事費用（歷史彙總）", "date": "2025-03-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 146433, "note": "酒水費用", "date": "2025-03-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-04": {"entries": [{"date": "2025-04-15", "dayName": "Mon", "revenue": 1008054, "customers": 37, "misc": 70371, "drinks": 0, "singer": 58200, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$915 日均37人 營業30天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 30, "_avgDailyCust": 37, "_avgTicket": 915, "_netProfit": 246610, "_labor": 177077}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-04-05"}, {"cat": "utilities", "amount": 5681, "note": "水電網路費", "date": "2025-04-10"}, {"cat": "cardFee", "amount": 16349, "note": "信用卡/LinePay手續費", "date": "2025-04-30"}, {"cat": "ads", "amount": 28698, "note": "廣告行銷費用", "date": "2025-04-15"}, {"cat": "accounting", "amount": 2500, "note": "會計&稅款費用", "date": "2025-04-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-04-01"}, {"cat": "hookah", "amount": 7800, "note": "水菸進貨", "date": "2025-04-10"}, {"cat": "equipment", "amount": 21000, "note": "裝潢設備費", "date": "2025-04-01"}, {"cat": "miscMonthly", "amount": 177077, "note": "人事費用（歷史彙總）", "date": "2025-04-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 152567, "note": "酒水費用", "date": "2025-04-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-05": {"entries": [{"date": "2025-05-15", "dayName": "Mon", "revenue": 1085851, "customers": 41, "misc": 209590, "drinks": 0, "singer": 58350, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$849 日均41人 營業31天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 31, "_avgDailyCust": 41, "_avgTicket": 849, "_netProfit": 216463, "_labor": 190286}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-05-05"}, {"cat": "utilities", "amount": 3054, "note": "水電網路費", "date": "2025-05-10"}, {"cat": "cardFee", "amount": 17192, "note": "信用卡/LinePay手續費", "date": "2025-05-30"}, {"cat": "ads", "amount": 30287, "note": "廣告行銷費用", "date": "2025-05-15"}, {"cat": "accounting", "amount": 5033, "note": "會計&稅款費用", "date": "2025-05-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-05-01"}, {"cat": "equipment", "amount": 157341, "note": "裝潢設備費", "date": "2025-05-01"}, {"cat": "miscMonthly", "amount": 190286, "note": "人事費用（歷史彙總）", "date": "2025-05-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 147295, "note": "酒水費用", "date": "2025-05-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-06": {"entries": [{"date": "2025-06-15", "dayName": "Mon", "revenue": 921321, "customers": 38, "misc": 49799, "drinks": 0, "singer": 63000, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$815 日均38人 營業30天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 30, "_avgDailyCust": 38, "_avgTicket": 815, "_netProfit": 196860, "_labor": 176332}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-06-05"}, {"cat": "utilities", "amount": 8346, "note": "水電網路費", "date": "2025-06-10"}, {"cat": "cardFee", "amount": 14215, "note": "信用卡/LinePay手續費", "date": "2025-06-30"}, {"cat": "ads", "amount": 28353, "note": "廣告行銷費用", "date": "2025-06-15"}, {"cat": "accounting", "amount": 25660, "note": "會計&稅款費用", "date": "2025-06-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-06-01"}, {"cat": "miscMonthly", "amount": 176332, "note": "人事費用（歷史彙總）", "date": "2025-06-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 150455, "note": "酒水費用", "date": "2025-06-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-07": {"entries": [{"date": "2025-07-15", "dayName": "Mon", "revenue": 887183, "customers": 32, "misc": 170787, "drinks": 0, "singer": 62100, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$881 日均32人 營業31天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 31, "_avgDailyCust": 32, "_avgTicket": 881, "_netProfit": 111179, "_labor": 171043}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-07-05"}, {"cat": "utilities", "amount": 1418, "note": "水電網路費", "date": "2025-07-10"}, {"cat": "cardFee", "amount": 13406, "note": "信用卡/LinePay手續費", "date": "2025-07-30"}, {"cat": "ads", "amount": 16235, "note": "廣告行銷費用", "date": "2025-07-15"}, {"cat": "accounting", "amount": 2533, "note": "會計&稅款費用", "date": "2025-07-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-07-01"}, {"cat": "hookah", "amount": 8900, "note": "水菸進貨", "date": "2025-07-10"}, {"cat": "equipment", "amount": 107362, "note": "裝潢設備費", "date": "2025-07-01"}, {"cat": "miscMonthly", "amount": 171043, "note": "人事費用（歷史彙總）", "date": "2025-07-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 121281, "note": "酒水費用", "date": "2025-07-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-08": {"entries": [{"date": "2025-08-15", "dayName": "Mon", "revenue": 991579, "customers": 38, "misc": 55439, "drinks": 0, "singer": 66000, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$841 日均38人 營業31天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 31, "_avgDailyCust": 38, "_avgTicket": 841, "_netProfit": 242113, "_labor": 178021}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-08-05"}, {"cat": "utilities", "amount": 13202, "note": "水電網路費", "date": "2025-08-10"}, {"cat": "cardFee", "amount": 13965, "note": "信用卡/LinePay手續費", "date": "2025-08-30"}, {"cat": "ads", "amount": 20655, "note": "廣告行銷費用", "date": "2025-08-15"}, {"cat": "accounting", "amount": 27334, "note": "會計&稅款費用", "date": "2025-08-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-08-01"}, {"cat": "hookah", "amount": 20800, "note": "水菸進貨", "date": "2025-08-10"}, {"cat": "miscMonthly", "amount": 178021, "note": "人事費用（歷史彙總）", "date": "2025-08-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 145749, "note": "酒水費用", "date": "2025-08-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-09": {"entries": [{"date": "2025-09-15", "dayName": "Mon", "revenue": 1012611, "customers": 42, "misc": 65042, "drinks": 0, "singer": 59650, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$819 日均42人 營業29天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 29, "_avgDailyCust": 42, "_avgTicket": 819, "_netProfit": 291907, "_labor": 174551}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-09-05"}, {"cat": "utilities", "amount": 2949, "note": "水電網路費", "date": "2025-09-10"}, {"cat": "cardFee", "amount": 14203, "note": "信用卡/LinePay手續費", "date": "2025-09-30"}, {"cat": "ads", "amount": 19366, "note": "廣告行銷費用", "date": "2025-09-15"}, {"cat": "accounting", "amount": 27334, "note": "會計&稅款費用", "date": "2025-09-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-09-01"}, {"cat": "hookah", "amount": 3500, "note": "水菸進貨", "date": "2025-09-10"}, {"cat": "miscMonthly", "amount": 174551, "note": "人事費用（歷史彙總）", "date": "2025-09-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 145808, "note": "酒水費用", "date": "2025-09-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-10": {"entries": [{"date": "2025-10-15", "dayName": "Mon", "revenue": 1010922, "customers": 42, "misc": 57289, "drinks": 0, "singer": 60300, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$762 日均42人 營業31天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 31, "_avgDailyCust": 42, "_avgTicket": 762, "_netProfit": 251230, "_labor": 180391}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-10-05"}, {"cat": "utilities", "amount": 14199, "note": "水電網路費", "date": "2025-10-10"}, {"cat": "cardFee", "amount": 15010, "note": "信用卡/LinePay手續費", "date": "2025-10-30"}, {"cat": "ads", "amount": 23632, "note": "廣告行銷費用", "date": "2025-10-15"}, {"cat": "accounting", "amount": 32891, "note": "會計&稅款費用", "date": "2025-10-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-10-01"}, {"cat": "hookah", "amount": 12000, "note": "水菸進貨", "date": "2025-10-10"}, {"cat": "miscMonthly", "amount": 180391, "note": "人事費用（歷史彙總）", "date": "2025-10-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 155679, "note": "酒水費用", "date": "2025-10-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-11": {"entries": [{"date": "2025-11-15", "dayName": "Mon", "revenue": 1135218, "customers": 47, "misc": 71285, "drinks": 0, "singer": 63600, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$827 日均47人 營業29天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 29, "_avgDailyCust": 47, "_avgTicket": 827, "_netProfit": 332987, "_labor": 202791}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-11-05"}, {"cat": "utilities", "amount": 3108, "note": "水電網路費", "date": "2025-11-10"}, {"cat": "cardFee", "amount": 19235, "note": "信用卡/LinePay手續費", "date": "2025-11-30"}, {"cat": "ads", "amount": 23329, "note": "廣告行銷費用", "date": "2025-11-15"}, {"cat": "accounting", "amount": 32891, "note": "會計&稅款費用", "date": "2025-11-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-11-01"}, {"cat": "hookah", "amount": 9750, "note": "水菸進貨", "date": "2025-11-10"}, {"cat": "miscMonthly", "amount": 202791, "note": "人事費用（歷史彙總）", "date": "2025-11-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 167941, "note": "酒水費用", "date": "2025-11-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2025-12": {"entries": [{"date": "2025-12-15", "dayName": "Mon", "revenue": 1221200, "customers": 45, "misc": 67433, "drinks": 0, "singer": 71600, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$844 日均45人 營業31天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 31, "_avgDailyCust": 45, "_avgTicket": 844, "_netProfit": 381278, "_labor": 208822}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2025-12-05"}, {"cat": "utilities", "amount": 9962, "note": "水電網路費", "date": "2025-12-10"}, {"cat": "cardFee", "amount": 20551, "note": "信用卡/LinePay手續費", "date": "2025-12-30"}, {"cat": "ads", "amount": 24023, "note": "廣告行銷費用", "date": "2025-12-15"}, {"cat": "accounting", "amount": 37971, "note": "會計&稅款費用", "date": "2025-12-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2025-12-01"}, {"cat": "hookah", "amount": 19480, "note": "水菸進貨", "date": "2025-12-10"}, {"cat": "miscMonthly", "amount": 208822, "note": "人事費用（歷史彙總）", "date": "2025-12-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 171779, "note": "酒水費用", "date": "2025-12-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2026-01": {"entries": [{"date": "2026-01-15", "dayName": "Mon", "revenue": 1276630, "customers": 43, "misc": 57238, "drinks": 0, "singer": 74500, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$959 日均43人 營業31天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 31, "_avgDailyCust": 43, "_avgTicket": 959, "_netProfit": 323100, "_labor": 277292}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2026-01-05"}, {"cat": "utilities", "amount": 3043, "note": "水電網路費", "date": "2026-01-10"}, {"cat": "cardFee", "amount": 21950, "note": "信用卡/LinePay手續費", "date": "2026-01-30"}, {"cat": "ads", "amount": 23799, "note": "廣告行銷費用", "date": "2026-01-15"}, {"cat": "accounting", "amount": 40471, "note": "會計&稅款費用", "date": "2026-01-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2026-01-01"}, {"cat": "miscMonthly", "amount": 277292, "note": "人事費用（歷史彙總）", "date": "2026-01-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 205321, "note": "酒水費用", "date": "2026-01-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}, "2026-02": {"entries": [{"date": "2026-02-15", "dayName": "Mon", "revenue": 835478, "customers": 36, "misc": 45387, "drinks": 0, "singer": 55650, "singerTip": 0, "extraIncome": 0, "note": "歷史彙總 | 來源：DS季度報告 | 客單價NT$841 日均36人 營業28天", "closed": false, "ptShifts": [], "_isHistorical": true, "_bizDays": 28, "_avgDailyCust": 36, "_avgTicket": 841, "_netProfit": 140652, "_labor": 163787}], "fixedItems": [{"cat": "rent", "amount": 204801, "note": "房租（含扣繳+二代健保）", "date": "2026-02-05"}, {"cat": "utilities", "amount": 6443, "note": "水電網路費", "date": "2026-02-10"}, {"cat": "cardFee", "amount": 15399, "note": "信用卡/LinePay手續費", "date": "2026-02-30"}, {"cat": "ads", "amount": 21582, "note": "廣告行銷費用", "date": "2026-02-15"}, {"cat": "accounting", "amount": 38139, "note": "會計&稅款費用", "date": "2026-02-01"}, {"cat": "cleaning", "amount": 3500, "note": "垃圾清潔費", "date": "2026-02-01"}, {"cat": "miscMonthly", "amount": 163787, "note": "人事費用（歷史彙總）", "date": "2026-02-28"}], "advances": [], "vendorPayments": [{"vendor": "歷史酒水廠商", "cat": "alcohol", "amount": 140138, "note": "酒水費用", "date": "2026-02-15"}], "bonusLog": [], "ptStaff": [], "ftStaff": []}}
+</script>
 <script>
+// Global error handler for debugging mobile issues
+window.onerror = function(msg, src, line, col, err) {
+  document.body.style.background = '#0D0A07';
+  document.body.style.color = '#FF3C6E';
+  document.body.style.fontFamily = 'monospace';
+  document.body.style.padding = '20px';
+  document.body.innerHTML = '<div style="padding:20px;font-size:14px;line-height:1.8;">' +
+    '<div style="color:#C8903A;font-size:18px;margin-bottom:16px;">BAR MANAGER</div>' +
+    '<div style="color:#FF3C6E;">⚠ Script Error</div>' +
+    '<div>' + msg + '</div>' +
+    '<div style="color:#88785A;font-size:12px;">Line: ' + line + ' Col: ' + col + '</div>' +
+    '</div>';
+  return false;
+};
 // ─────────────────────────────────────────────────────
 // DATA & STATE
 // ─────────────────────────────────────────────────────
@@ -2181,7 +2246,7 @@ function seedData() {
             },
             {
                 "name": "Debby",
-                "hourly": 0,
+                "hourly": 200,
                 "hours": 2,
                 "bonus": 141
             },
@@ -2587,7 +2652,7 @@ function seedData() {
         "ptShifts": [
             {
                 "name": "Debby",
-                "hourly": 0,
+                "hourly": 200,
                 "hours": 6,
                 "bonus": 891
             },
@@ -2637,7 +2702,7 @@ function seedData() {
             },
             {
                 "name": "Debby",
-                "hourly": 0,
+                "hourly": 200,
                 "hours": 8.5,
                 "bonus": 190
             }
@@ -2674,23 +2739,167 @@ function seedData() {
                 "bonus": 0
             }
         ]
+    },
+    {
+        "date": "2026-03-30",
+        "dayName": "Mon",
+        "revenue": 50984,
+        "misc": 0,
+        "drinks": 0,
+        "singer": 3000,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "",
+        "closed": false,
+        "ptShifts": [
+            {"name": "芷柔", "hourly": 200, "hours": 7,   "bonus": 897},
+            {"name": "Hsu",  "hourly": 0,   "hours": 8,   "bonus": 1025},
+            {"name": "Pino", "hourly": 0,   "hours": 8,   "bonus": 1026}
+        ]
+    },
+    {
+        "date": "2026-03-31",
+        "dayName": "Tue",
+        "revenue": 21076,
+        "misc": 4914,
+        "drinks": 0,
+        "singer": 1800,
+        "singerTip": 0,
+        "extraIncome": 0,
+        "note": "開元2360 乾冰660 檸檬汁1894",
+        "closed": false,
+        "ptShifts": [
+            {"name": "小葉", "hourly": 200, "hours": 7.5, "bonus": 0},
+            {"name": "Pino", "hourly": 0,   "hours": 8,   "bonus": 0}
+        ]
     }
 ];
 
   const seedVendors = [
-    {
-        "vendor": "文哥",
-        "cat": "alcohol",
-        "amount": 11400,
-        "note": "文哥的酒",
-        "date": "2026-03-21"
-    }
+    {"vendor": "文哥",   "cat": "alcohol", "amount": 11400, "note": "文哥的酒",    "date": "2026-03-21"},
+    {"vendor": "滷味食材", "cat": "food",   "amount": 8138,  "note": "滷味食材進貨", "date": "2026-03-01"},
+    {"vendor": "滷味食材", "cat": "food",   "amount": 6746,  "note": "滷味食材進貨", "date": "2026-03-01"},
+    {"vendor": "酈展",   "cat": "alcohol", "amount": 38495, "note": "酒商貨款",    "date": "2026-03-31"},
+    {"vendor": "振興",   "cat": "alcohol", "amount": 46070, "note": "酒商貨款",    "date": "2026-03-31"}
 ];
 
   allData['2026-03'] = {
     entries:        realEntries,
-    fixedItems:     [],
-    advances:       [],
+    _monthCustomers: 45,   // 平均來客數/日
+    _monthTicket:    835,  // 客單價
+    fixedItems:     [
+        {"cat": "equipment",  "amount": 3200,   "note": "消防安全檢修",         "date": "2026-03-23"},
+        {"cat": "hookah",     "amount": 8000,   "note": "水煙進貨",             "date": "2026-03-31"},
+        {"cat": "ads",        "amount": 16778,  "note": "Google Ads 廣告費",    "date": "2026-03-31"},
+        {"cat": "ads",        "amount": 3152,   "note": "Meta Ads 廣告費",      "date": "2026-03-31"},
+        {"cat": "rent",       "amount": 180000, "note": "3月房租",              "date": "2026-03-15"},
+        {"cat": "rent",       "amount": 20480,  "note": "租賃扣繳（10%）",      "date": "2026-03-31"},
+        {"cat": "rent",       "amount": 4321,   "note": "房租二代健保補充保費",  "date": "2026-03-31"},
+        {"cat": "insurance",  "amount": 3475,   "note": "勞保費",               "date": "2026-03-31"},
+        {"cat": "insurance",  "amount": 1818,   "note": "勞退",                 "date": "2026-03-31"},
+        {"cat": "insurance",  "amount": 3822,   "note": "健保費",               "date": "2026-03-31"},
+        {"cat": "cleaning",   "amount": 3500,   "note": "垃圾清潔費",           "date": "2026-03-31"},
+        {"cat": "accounting", "amount": 37971,  "note": "會計及401稅款費用",     "date": "2026-03-31"},
+        {"cat": "cardFee",    "amount": 19115,  "note": "信用卡手續費",          "date": "2026-03-31"}
+    ],
+    advances:       [
+    {
+        "name": "Debby",
+        "amount": 460,
+        "note": "Netflix", "cat": "fixed_ads",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 490,
+        "note": "YouTube", "cat": "fixed_ads",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 5900,
+        "note": "冷氣清洗費用", "cat": "fixed_equipment",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 999,
+        "note": "愛爾達", "cat": "fixed_ads",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 195,
+        "note": "taxi", "cat": "misc_other",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 1953,
+        "note": "椅子", "cat": "fixed_equipment",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 299,
+        "note": "3/20薯條", "cat": "misc_food",
+        "date": "2026-03-20"
+    },
+    {
+        "name": "Debby",
+        "amount": 300,
+        "note": "愛爾達", "cat": "fixed_ads",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 203,
+        "note": "Panda", "cat": "misc_food",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 395,
+        "note": "taxi", "cat": "misc_other",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 393,
+        "note": "taxi", "cat": "misc_other",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 454,
+        "note": "Panda", "cat": "misc_food",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 1200,
+        "note": "杯墊", "cat": "misc_deco",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 7000,
+        "note": "杯墊", "cat": "misc_deco",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 185,
+        "note": "愛爾達", "cat": "fixed_ads",
+        "date": "2026-03-01"
+    },
+    {
+        "name": "Debby",
+        "amount": 682,
+        "note": "小北百貨", "cat": "misc_other",
+        "date": "2026-03-01"
+    }
+],
     vendorPayments: seedVendors,
     bonusLog:       [],
     ptStaff: [
@@ -2702,17 +2911,29 @@ function seedData() {
       { name:'Echo', hourly:200, hours:0, bonus:0, salary:0 },
       { name:'小葉', hourly:200, hours:0, bonus:0, salary:0 },
       { name:'妃妃', hourly:200, hours:0, bonus:0, salary:0 },
-      { name:'Debby', hourly:0,   hours:0, bonus:0, salary:5000 },
+      { name:'Debby', hourly:200, hours:0, bonus:0, salary:5000 },
     ],
     ftStaff: [
-      { name:'Pino', salary:45000, bonus:0 },
-      { name:'Hsu',  salary:42000, bonus:0 },
+      { name:'Pino', salary:35000, bonus:0 },
+      { name:'Hsu',  salary:39000, bonus:0 },
     ]
   };
 
+  // Historical months from DS季度報告 (2024-08 to 2026-02)
+  // Load historical data from embedded JSON tag
+  const _histEl = document.getElementById('historicalDataJSON');
+  if (_histEl) {
+    try {
+      const historicalData = JSON.parse(_histEl.textContent);
+      Object.entries(historicalData).forEach(([k, v]) => {
+        if (!allData[k]) allData[k] = v;
+      });
+    } catch(e) { console.warn('Historical data parse error:', e); }
+  }
+
   ftBonusHistory = [
     { quarter:'2024-Q4', curRev:944964, prevRev:null, yoyPct:null, pct:null, monthly:null, pool:null, perPerson:null, note:'2024Q4 基準期（無去年同期）', hb:{ duanwu:0, midautumn:0, yearend:5000 } },
-    { quarter:'2025-Q1', curRev:900110, prevRev:944964, yoyPct:41.83, pct:5, monthly:18826, pool:56478, perPerson:9413, note:'2025Q1 確認，YoY +41.83%', hb:{ duanwu:0, midautumn:0, yearend:0 } },
+    { quarter:'2025-Q1', curRev:900110, prevRev:634640, yoyPct:41.83, pct:5, monthly:18826, pool:56478, perPerson:9413, note:'2025Q1 確認，YoY +41.83%（去年同季Q1 2024）', hb:{ duanwu:0, midautumn:0, yearend:0 } },
   ];
   saveFTHistory();
   saveAll();
@@ -2724,7 +2945,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '9', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '40', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -2736,7 +2957,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '9';
+  const DATA_VERSION = '40';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -2746,10 +2967,11 @@ function loadAll() {
       if (parsed.bonusConfig) bonusConfig = parsed.bonusConfig;
       if (parsed.staffConfig) staffConfig = parsed.staffConfig;
     } else {
-      // Version mismatch: preserve user settings, re-seed real data
+      // Version mismatch: clear allData, re-seed fresh from hardcoded data
       if (parsed.bonusConfig) bonusConfig = parsed.bonusConfig;
       if (parsed.staffConfig) staffConfig = parsed.staffConfig;
-      seedData();  // loads hardcoded real entries
+      allData = {};  // clear stale cache completely
+      seedData();    // load all hardcoded real entries fresh
     }
   }
   const ftRaw = localStorage.getItem(STORAGE_KEY + '_ftBonus');
@@ -2795,7 +3017,7 @@ function calcMonthStats(key) {
     if (unitemized > 0) miscCats.other += unitemized;
   });
   const fixedTotal = d.fixedItems.filter(f => !['prevBalance','cashFloat'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
-  const advancesTotal = d.advances.reduce((s,a) => s+a.amount, 0);  // 追蹤用，不計入支出（費用已記在日結雜支）
+  const advancesTotal = d.advances.reduce((s,a) => s+a.amount, 0);  // 計入支出
   const vendorTotal = (d.vendorPayments||[]).reduce((s,v) => s+v.amount, 0);
 
   // PT salary from ptShifts
@@ -2824,7 +3046,8 @@ function calcMonthStats(key) {
   });
 
   const totalLabor = ptSalary + ftSalary;
-  const totalExpense = totalMisc + totalLabor + fixedTotal + vendorTotal;  // 代墊款不重複計算
+  const advTotal = d.advances.reduce((s,a) => s+a.amount, 0);
+  const totalExpense = totalMisc + totalLabor + fixedTotal + vendorTotal + advTotal;
   const netProfit = totalRevenue - totalExpense;
   const profitRate = totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0;
 
@@ -2902,7 +3125,8 @@ function renderSalary() {
     }, 0) : 0;
     const ftIns = isFT ? (emp.laborIns||0) + (emp.healthIns||0) : 0;
     const ptIns = !isFT ? (emp.laborIns||0) + (emp.healthIns||0) : 0;
-    const total = isFT ? (emp.salary||0) + ftBonus - ftIns : (emp.hourly||0) * ptData.hours + ptData.bonus + (emp.salary||0) - ptIns;
+    const ftQBonus = isFT ? (emp.quarterBonus||0) : 0;
+    const total = isFT ? (emp.salary||0) + ftBonus + ftQBonus - ftIns : (emp.hourly||0) * ptData.hours + ptData.bonus + (emp.salary||0) - ptIns;
 
     empGrid.innerHTML += `
       <div class="emp-card ${isFT?'ft':''}">
@@ -2921,6 +3145,13 @@ function renderSalary() {
           <div class="emp-stat-row">
             <span class="emp-stat-label">本月獎金</span>
             <span class="emp-stat-value td-gold">+${fmtRaw(ftBonus)}</span>
+          </div>
+          <div class="emp-stat-row">
+            <span class="emp-stat-label">季獎金（業績）</span>
+            <div class="inline-edit">
+              <input type="number" value="${emp.quarterBonus||0}" onchange="updateFTQuarterBonus('${emp.name}',this.value)" style="width:90px;padding:4px 8px;">
+              <span style="font-size:10px;color:var(--muted)">元/季</span>
+            </div>
           </div>
           <div class="emp-stat-row">
             <span class="emp-stat-label">勞保費（自付）</span>
@@ -2996,10 +3227,12 @@ function renderSalary() {
       const sh = (e.ptShifts||[]).find(p => p.name === emp.name);
       return s + (sh ? sh.bonus||0 : 0);
     }, 0) : 0;
-    const laborPay = isFT ? 0 : (emp.hourly||0) * ptData.hours;
-    const bonus = isFT ? ftBonus : ptData.bonus;
-    const base = isFT ? (emp.salary||0) : (emp.salary||0);
-    const total = laborPay + bonus + base;
+    const laborPay  = isFT ? 0 : (emp.hourly||0) * ptData.hours;
+    const bonus     = isFT ? ftBonus : ptData.bonus;
+    const base      = emp.salary||0;
+    const ftQBonus  = isFT ? (emp.quarterBonus||0) : 0;
+    const ins       = (emp.laborIns||0) + (emp.healthIns||0);
+    const total     = laborPay + bonus + base + ftQBonus - ins;
     grandTotal += total;
     tbody.innerHTML += `
       <tr>
@@ -3010,12 +3243,14 @@ function renderSalary() {
         <td class="td-right td-mono">${fmtRaw(laborPay)}</td>
         <td class="td-right td-gold">+${fmtRaw(bonus)}</td>
         <td class="td-right td-mono">${fmtRaw(base)}</td>
+        <td class="td-right" style="color:var(--purple);font-family:'Space Mono',monospace">${ftQBonus > 0 ? '+'+fmtRaw(ftQBonus) : '—'}</td>
+        <td class="td-right td-red">${ins > 0 ? '-'+fmtRaw(ins) : '—'}</td>
         <td class="td-right"><strong class="td-gold">${fmtRaw(total)}</strong></td>
         <td class="td-muted td-mono" style="font-size:11px;">${isFT ? '固定月薪' : `${ptData.hours}h × ${emp.hourly}`}</td>
       </tr>`;
   });
   document.getElementById('salaryTableFoot').innerHTML = `
-    <td colspan="8" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">總實發金額</td>
+    <td colspan="9" style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;">總實發金額</td>
     <td class="td-right" style="font-size:16px;">${fmtRaw(grandTotal)}</td>
     <td></td>`;
 
@@ -3075,6 +3310,11 @@ function updateFTSalary(name, val) {
   const d = getMonthData(currentMonth);
   const emp = d.ftStaff.find(e => e.name === name);
   if (emp) { emp.salary = +val; saveAll(); toast('已更新 ' + name + ' 月薪'); }
+}
+function updateFTQuarterBonus(name, val) {
+  const d = getMonthData(currentMonth);
+  const emp = d.ftStaff.find(e => e.name === name);
+  if (emp) { emp.quarterBonus = +val; saveAll(); renderSalary(); toast('已更新 ' + name + ' 季獎金'); }
 }
 function updateFTIns(name, type, val) {
   const d = getMonthData(currentMonth);
@@ -3161,7 +3401,7 @@ function renderPayments() {
       <div class="kpi-sub">${(d.vendorPayments||[]).length} 筆</div>
     </div>
     <div class="kpi-card" style="--accent:var(--blue)">
-      <div class="kpi-label">代墊款待匯</div>
+      <div class="kpi-label">代墊款（已計支出）</div>
       <div class="kpi-value">${fmtRaw(advTotal)}</div>
       <div class="kpi-sub">月底需匯款給代墊人</div>
     </div>
@@ -3178,12 +3418,24 @@ function renderPayments() {
   // Advances table
   const advBody = document.getElementById('advanceTableBody');
   advBody.innerHTML = '';
+  const ADV_CAT_LABELS = {
+    'misc_food':'食材耗材','misc_drinks':'酒水原料','misc_deco':'裝飾佈置',
+    'misc_hygiene':'清潔衛生','misc_other':'雜支其他',
+    'fixed_equipment':'設備維修','fixed_ads':'廣告費','fixed_utilities':'水電網路',
+    'fixed_cleaning':'清潔服務','fixed_accounting':'會計費','fixed_insurance':'保險/消防',
+    'fixed_miscMonthly':'其他固定',
+    'vendor_alcohol':'酒水廠商','vendor_food':'食材廠商','vendor_supplies':'耗材廠商',
+    'vendor_equipment':'設備廠商','vendor_other':'其他廠商',
+  };
   d.advances.forEach((a, i) => {
+    const catLabel = a.cat ? (ADV_CAT_LABELS[a.cat] || a.cat) : '—';
+    const catColor = a.cat ? (a.cat.startsWith('misc')?'var(--blue)':a.cat.startsWith('fixed')?'var(--gold)':'var(--green)') : 'var(--muted)';
     advBody.innerHTML += `
       <tr>
         <td class="td-mono" style="font-size:12px">${a.date}</td>
         <td>${a.name}</td>
         <td class="td-muted">${a.note}</td>
+        <td><span style="font-size:11px;color:${catColor}">${catLabel}</span></td>
         <td class="td-right td-gold">${fmtRaw(a.amount)}</td>
         <td><button class="btn btn-danger btn-sm" onclick="delAdvance(${i})">✕</button></td>
       </tr>`;
@@ -3253,24 +3505,32 @@ function renderPayments() {
 }
 
 function addAdvance() {
-  const name = document.getElementById('adv-name').value.trim();
+  const name   = document.getElementById('adv-name').value.trim();
+  const cat    = document.getElementById('adv-cat').value;
   const amount = +document.getElementById('adv-amount').value;
-  const note = document.getElementById('adv-note').value.trim();
-  const date = document.getElementById('adv-date').value;
+  const note   = document.getElementById('adv-note').value.trim();
+  const date   = document.getElementById('adv-date').value;
   if (!name || !amount || !date) { toast('請填寫所有欄位'); return; }
+
   const d = getMonthData(currentMonth);
-  d.advances.push({ name, amount, note, date });
+
+  // 1. Save advance record
+  d.advances.push({ name, amount, note, date, cat });
+
   saveAll();
   renderPayments();
   ['adv-name','adv-amount','adv-note'].forEach(id => document.getElementById(id).value = '');
-  toast('✓ 代墊款已新增');
+  toast('✓ 代墊款已新增，已計入月支出');
 }
 
 function delAdvance(i) {
-  if (!confirm('確定刪除？')) return;
+  if (!confirm('確定刪除代墊款？同時刪除對應的支出記錄。')) return;
   const d = getMonthData(currentMonth);
+  const adv = d.advances[i];
+
   d.advances.splice(i, 1);
   saveAll(); renderPayments();
+  toast('代墊款已刪除');
 }
 
 function addVendor() {
@@ -3358,23 +3618,7 @@ function renderAnalysis() {
           if (dow === 5 || dow === 6) return 'rgba(180,142,240,0.7)';
           if (dow === 0) return 'rgba(200,144,58,0.7)';
           return 'rgba(106,171,247,0.6)';
-        },
-        {
-            "date": "2026-03-30",
-            "dayName": "Mon",
-            "revenue": 50984,
-            "misc": 0,
-            "drinks": 0,
-            "singer": 3000,
-            "singerTip": 0,
-            "extraIncome": 0,
-            "note": "",
-            "closed": false,
-            "ptShifts": [
-                {"name": "芷柔", "hourly": 200, "hours": 7, "bonus": 897},
-                {"name": "Hsu",  "hourly": 0,   "hours": 8, "bonus": 1025},
-                {"name": "Pino", "hourly": 0,   "hours": 8, "bonus": 1026}
-            ]
+
         }),
         borderRadius: 4,
       }]
@@ -3568,22 +3812,75 @@ function generateReport() {
   const profitRate = totRev > 0 ? (totNet/totRev*100) : 0;
 
   // Report KPIs
+  // MoM comparison
+  let momRev = 0, momStr = '—', momColor = 'var(--muted)';
+  const prevMonth = months.length === 1 ? getPrevMonthKey(months[0]) : null;
+  if (prevMonth && allData[prevMonth]) {
+    const ps = calcMonthStats(prevMonth);
+    momRev = ps.totalRevenue;
+    if (momRev > 0) {
+      const momPct = (totRev - momRev) / momRev * 100;
+      momStr  = (momPct >= 0 ? '+' : '') + momPct.toFixed(1) + '%';
+      momColor = momPct >= 0 ? 'var(--green)' : 'var(--red)';
+    }
+  }
+
+  // YoY comparison (same month last year)
+  let yoyStr = '—', yoyColor = 'var(--muted)';
+  if (months.length === 1) {
+    const yoyKey = (parseInt(months[0].slice(0,4))-1) + months[0].slice(4);
+    if (allData[yoyKey]) {
+      const ys = calcMonthStats(yoyKey);
+      if (ys.totalRevenue > 0) {
+        const yoyPct = (totRev - ys.totalRevenue) / ys.totalRevenue * 100;
+        yoyStr  = (yoyPct >= 0 ? '+' : '') + yoyPct.toFixed(1) + '%';
+        yoyColor = yoyPct >= 0 ? 'var(--green)' : 'var(--red)';
+      }
+    }
+  }
+
+  // Customer stats across selected months
+  const custEntries = allEntries.filter(e => !e.closed && e.customers > 0);
+  const totCust  = custEntries.reduce((s,e) => s+(e.customers||0), 0);
+  // Use month-level override if present (for months without per-day customer data)
+  const monthAvgCust  = months.length===1 ? (getMonthData(months[0])._monthCustomers||0) : 0;
+  const monthAvgTicket= months.length===1 ? (getMonthData(months[0])._monthTicket||0) : 0;
+  const avgCustR = monthAvgCust || (custEntries.length > 0 ? Math.round(totCust/custEntries.length) : 0);
+  const avgTickR = monthAvgTicket || (totCust > 0 ? Math.round(totRev/totCust) : 0);
+  const bizDays  = allEntries.filter(e => !e.closed).length;
+
   document.getElementById('reportKpis').innerHTML = `
     <div class="report-kpi highlight">
       <span class="report-kpi-value">${fmtRaw(totRev)}</span>
       <div class="report-kpi-label">總營收</div>
     </div>
+    <div class="report-kpi ${totNet>=0?'positive':'negative'}">
+      <span class="report-kpi-value">${fmtRaw(totNet)}</span>
+      <div class="report-kpi-label">淨利（${profitRate.toFixed(1)}%）</div>
+    </div>
+    <div class="report-kpi">
+      <span class="report-kpi-value" style="color:${momColor}">${momStr}</span>
+      <div class="report-kpi-label">MoM 月增率</div>
+    </div>
+    <div class="report-kpi">
+      <span class="report-kpi-value" style="color:${yoyColor}">${yoyStr}</span>
+      <div class="report-kpi-label">YoY 年增率</div>
+    </div>
+    <div class="report-kpi">
+      <span class="report-kpi-value">${bizDays}</span>
+      <div class="report-kpi-label">營業天數</div>
+    </div>
+    <div class="report-kpi">
+      <span class="report-kpi-value">${avgCustR > 0 ? avgCustR : '—'}</span>
+      <div class="report-kpi-label">平均來客數 /日</div>
+    </div>
+    <div class="report-kpi">
+      <span class="report-kpi-value">${avgTickR > 0 ? 'NT$'+fmtRaw(avgTickR) : '—'}</span>
+      <div class="report-kpi-label">平均客單價</div>
+    </div>
     <div class="report-kpi">
       <span class="report-kpi-value">${fmtRaw(totExp)}</span>
       <div class="report-kpi-label">總支出</div>
-    </div>
-    <div class="report-kpi ${totNet>=0?'positive':'negative'}">
-      <span class="report-kpi-value">${fmtRaw(totNet)}</span>
-      <div class="report-kpi-label">淨利</div>
-    </div>
-    <div class="report-kpi ${profitRate>=15?'positive':''}">
-      <span class="report-kpi-value">${profitRate.toFixed(1)}%</span>
-      <div class="report-kpi-label">利潤率</div>
     </div>
   `;
 
@@ -3612,7 +3909,7 @@ function generateReport() {
     { label:'人事費用', val:-totLabor,   color:'var(--green)' },
     { label:'廠商貨款', val:-totVnd,     color:'#E8C07A' },
     ...fixedWfItems,
-    // 代墊款不列入收支（費用已記在日結雜支，此處只追蹤匯款對象）
+    { label:'代墊款支出', val:-totAdv, color:'var(--blue)' },
   ].filter(x => x.val !== 0);
 
   const wf = document.getElementById('reportWaterfall');
@@ -3638,7 +3935,7 @@ function generateReport() {
     { label:'固定支出', val:totFixed, color:'#E8C07A' },
     { label:'日常可變', val:totMisc, color:'#6AABF7' },
     { label:'廠商貨款', val:totVnd, color:'#C8903A' },
-    // 代墊款不計入支出圓餅圖
+    { label:'代墊款支出', val:totAdv, color:'#6AABF7' },
   ].filter(x => x.val > 0);
 
   const ctx5 = document.getElementById('reportExpenseChart').getContext('2d');
@@ -3694,16 +3991,55 @@ function generateReport() {
   staffHtml += `</tbody><tfoot><tr class="tbl-total"><td colspan="5">人事費用合計</td><td class="td-right td-gold" style="font-size:16px">${fmtRaw(staffGrand)}</td></tr></tfoot></table>`;
   staffTableDiv.innerHTML = staffHtml;
 
+  // Quarterly summary table
+  const qtDiv = document.getElementById('reportQuarterTable');
+  if (qtDiv) {
+    const allMonthKeys = Object.keys(allData).sort();
+    const cols = allMonthKeys.slice(-6); // last 6 months for context
+    const rowDefs = [
+      { label:'月營收',       fn: m => calcMonthStats(m).totalRevenue,   fmt: fmtRaw,  gold: true },
+      { label:'營業天數',     fn: m => { const d=getMonthData(m); const hist=d.entries.find(e=>e._isHistorical); return hist ? (hist._bizDays||1) : d.entries.filter(e=>!e.closed).length; }, fmt: v=>v+'天', gold: false },
+      { label:'平均來客數/日',fn: m => { const d=getMonthData(m); if (d._monthCustomers) return d._monthCustomers; const hist=d.entries.find(e=>e._isHistorical); if (hist&&hist._avgDailyCust) return hist._avgDailyCust; const ce=d.entries.filter(e=>!e.closed&&e.customers>0); return ce.length?Math.round(ce.reduce((s,e)=>s+(e.customers||0),0)/ce.length):0; }, fmt: v=>v?v+'人':'—', gold: false },
+      { label:'客單價',       fn: m => { const d=getMonthData(m); if (d._monthTicket) return d._monthTicket; const hist=d.entries.find(e=>e._isHistorical); if (hist&&hist._avgTicket) return hist._avgTicket; const ce=d.entries.filter(e=>!e.closed&&e.customers>0); const tc=ce.reduce((s,e)=>s+(e.customers||0),0); return tc?Math.round(calcMonthStats(m).totalRevenue/tc):0; }, fmt: v=>v?'NT$'+fmtRaw(v):'—', gold: false },
+      { label:'歌手費',       fn: m => getMonthData(m).entries.reduce((s,e)=>s+(e.singer||0),0), fmt: fmtRaw, gold: false },
+      { label:'人事費用',     fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); return hist ? (hist._labor||s.totalLabor) : s.totalLabor; }, fmt: fmtRaw, gold: false },
+      { label:'廠商貨款',     fn: m => calcMonthStats(m).vendorTotal,    fmt: fmtRaw,  gold: false },
+      { label:'固定支出',     fn: m => calcMonthStats(m).fixedTotal,     fmt: fmtRaw,  gold: false },
+      { label:'月淨利',       fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); return hist&&hist._netProfit ? hist._netProfit : s.netProfit; }, fmt: fmtRaw, gold: true },
+      { label:'利潤率',       fn: m => calcMonthStats(m).profitRate,     fmt: v=>v.toFixed(1)+'%', gold: false },
+    ];
+    let tbl = '<table><thead><tr><th>項目</th>';
+    cols.forEach(m => { tbl += `<th class="td-right">${m}</th>`; });
+    tbl += '</tr></thead><tbody>';
+    rowDefs.forEach(row => {
+      tbl += `<tr><td style="font-size:12px;color:var(--muted)">${row.label}</td>`;
+      cols.forEach(m => {
+        const val = row.fn(m);
+        const color = row.gold ? 'var(--gold-l)' : val < 0 ? 'var(--red)' : '';
+        tbl += `<td class="td-right td-mono" style="font-size:12px;${color?'color:'+color:''}">${row.fmt(val)}</td>`;
+      });
+      tbl += '</tr>';
+    });
+    tbl += '</tbody></table>';
+    qtDiv.innerHTML = tbl;
+  }
+
   // Payments section
   const payDiv = document.getElementById('reportPayments');
   const advAll = months.flatMap(m => getMonthData(m).advances);
   const vndAll = months.flatMap(m => (getMonthData(m).vendorPayments||[]));
   payDiv.innerHTML = `
     <div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;letter-spacing:0.1em;text-transform:uppercase;">代墊款匯款追蹤 — 合計 ${fmtRaw(advAll.reduce((s,a)=>s+a.amount,0))}（不計入支出）</div>
-      ${advAll.length ? `<table><thead><tr><th>日期</th><th>代墊人</th><th>說明</th><th class="td-right">金額</th></tr></thead><tbody>
-      ${advAll.map(a=>`<tr><td class="td-mono" style="font-size:11px">${a.date}</td><td>${a.name}</td><td class="td-muted">${a.note}</td><td class="td-right td-gold">${fmtRaw(a.amount)}</td></tr>`).join('')}
-      </tbody></table>` : '<div style="color:var(--muted);font-size:13px">本月無代墊款</div>'}
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;letter-spacing:0.1em;text-transform:uppercase;">代墊款（月底匯款）— 合計 ${fmtRaw(advAll.reduce((s,a)=>s+a.amount,0))}</div>
+      ${(() => {
+        if (!advAll.length) return '<div style=\"color:var(--muted);font-size:13px\">本月無代墊款</div>';
+        const byP = {};
+        advAll.forEach(a => { byP[a.name] = (byP[a.name]||0) + a.amount; });
+        const total = advAll.reduce((s,a)=>s+a.amount,0);
+        return Object.entries(byP).map(([n,v]) =>
+          `<div style=\"display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;\"><span>${n}</span><span style=\"font-family:Space Mono,monospace;color:var(--gold)\">${fmtRaw(v)}</span></div>`
+        ).join('') + `<div style=\"display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:13px;\"><span style=\"color:var(--muted)\">合計</span><span style=\"font-family:Space Mono,monospace;color:var(--gold-l)\">${fmtRaw(total)}</span></div>`;
+      })()}
     </div>
     <div>
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px;letter-spacing:0.1em;text-transform:uppercase;">廠商貨款 — 合計 ${fmtRaw(vndAll.reduce((s,v)=>s+v.amount,0))}</div>
@@ -3825,6 +4161,8 @@ function delFTBonusRecord(i) {
   ftBonusHistory.splice(i, 1);
   saveFTHistory();
   renderFTBonusHistory();
+  // Auto-fill quarter revenue based on current selection
+  if (document.getElementById('ft-quarter')) autoFillQuarterRevenue();
 }
 
 function renderFTBonusHistory() {
@@ -3832,13 +4170,17 @@ function renderFTBonusHistory() {
   if (!tbody) return;
   tbody.innerHTML = '';
   ftBonusHistory.forEach((r, i) => {
-    const hasYoy = r.yoyPct !== null && r.yoyPct !== undefined;
-    const yoyColor = !hasYoy ? 'var(--muted)' : r.yoyPct >= 6 ? 'var(--green)' : r.yoyPct >= 1 ? 'var(--gold)' : 'var(--red)';
+    // Recalculate YoY from curRev/prevRev (don't trust stored yoyPct alone)
+    const hasYoy = r.prevRev && r.prevRev > 0;
+    const calcYoy = hasYoy ? (r.curRev - r.prevRev) / r.prevRev * 100 : null;
+    // Use stored yoyPct if it differs significantly (manual entry), else use calc
+    const displayYoy = r.yoyPct !== null && Math.abs(r.yoyPct - (calcYoy||0)) > 0.1 ? r.yoyPct : calcYoy;
+    const yoyColor = !hasYoy ? 'var(--muted)' : displayYoy >= 6 ? 'var(--green)' : displayYoy >= 0 ? 'var(--gold)' : 'var(--red)';
     tbody.innerHTML += `<tr>
       <td><strong class="td-gold">${r.quarter}</strong></td>
       <td class="td-right td-mono">${fmtRaw(r.curRev)}</td>
       <td class="td-right td-mono">${r.prevRev ? fmtRaw(r.prevRev) : '—'}</td>
-      <td class="td-right" style="font-family:'Space Mono',monospace;color:${yoyColor}">${hasYoy ? (r.yoyPct>=0?'+':'') + r.yoyPct.toFixed(2) + '%' : '基準期'}</td>
+      <td class="td-right" style="font-family:'Space Mono',monospace;color:${yoyColor}">${hasYoy && displayYoy!==null ? (displayYoy>=0?'+':'') + displayYoy.toFixed(2) + '%' : '基準期'}</td>
       <td class="td-right td-mono">${r.pct ? r.pct + '%' : '—'}</td>
       <td class="td-right td-mono">${r.monthly ? fmtRaw(r.monthly) : '—'}</td>
       <td class="td-right td-gold">${r.pool ? fmtRaw(r.pool) : '—'}</td>
@@ -3890,7 +4232,40 @@ function renderFTYearEndSummary() {
   el.innerHTML = html;
 }
 
-function updateFTYearOptions() { calcFTBonus(); }
+function updateFTYearOptions() {
+  const year = document.getElementById('ft-year').value;
+  const q    = document.getElementById('ft-quarter').value;
+  const qMap = { Q1:['01','02','03'], Q2:['04','05','06'], Q3:['07','08','09'], Q4:['10','11','12'] };
+  const months = qMap[q].map(m => year + '-' + m);
+  const prevYear = String(+year - 1);
+  const prevMonths = qMap[q].map(m => prevYear + '-' + m);
+
+  // Calculate current quarter avg monthly revenue from actual data
+  const curRevs = months.map(mk => {
+    const d = allData[mk];
+    if (!d) return null;
+    const e = d.entries && d.entries.find(e => e._isHistorical);
+    if (e) return e.revenue;  // historical: stored as monthly total
+    const active = (d.entries||[]).filter(e => !e.closed);
+    return active.length ? active.reduce((s,e)=>s+(e.revenue||0),0) : null;
+  }).filter(v => v !== null);
+  const curAvg = curRevs.length ? Math.round(curRevs.reduce((a,b)=>a+b,0)/curRevs.length) : 0;
+
+  // Calculate prev year same quarter avg monthly revenue
+  const prevRevs = prevMonths.map(mk => {
+    const d = allData[mk];
+    if (!d) return null;
+    const e = d.entries && d.entries.find(e => e._isHistorical);
+    if (e) return e.revenue;
+    const active = (d.entries||[]).filter(e => !e.closed);
+    return active.length ? active.reduce((s,e)=>s+(e.revenue||0),0) : null;
+  }).filter(v => v !== null);
+  const prevAvg = prevRevs.length ? Math.round(prevRevs.reduce((a,b)=>a+b,0)/prevRevs.length) : 0;
+
+  if (curAvg)  document.getElementById('ft-cur-rev').value  = curAvg;
+  if (prevAvg) document.getElementById('ft-prev-rev').value = prevAvg;
+  calcFTBonus();
+}
 
 // ─────────────────────────────────────────────────────
 // NAVIGATION & INIT
@@ -3996,6 +4371,17 @@ window.addEventListener('DOMContentLoaded', () => {
   renderFTBonusHistory();
   // Init GS sync status
   if (GS_URL) setSyncStatus('🔗 Sheets 已連線', 'var(--muted)');
+
+  // Password screen init
+  const pwScreen = document.getElementById('pwScreen');
+  if (pwScreen) {
+    if (sessionStorage.getItem('dsAuth') === '1') {
+      pwScreen.style.display = 'none';
+    } else {
+      const inp = document.getElementById('pwInput');
+      if (inp) setTimeout(() => inp.focus(), 100);
+    }
+  }
 });
 
 
@@ -4133,6 +4519,12 @@ async function pullFromSheets() {
   }
 }
 
+function forceReseed() {
+  if (!confirm('清除所有本地資料並重新載入程式內建資料？\n（你在系統輸入的資料會消失，但 Sheets 備份不影響）')) return;
+  localStorage.removeItem('dsBarManager');
+  localStorage.removeItem('dsBarManager_ftBonus');
+  location.reload();
+}
 function showSettings() {
   const modal = document.getElementById('settingsModal');
   modal.style.display = 'flex';
@@ -4170,16 +4562,7 @@ function checkPw() {
 }
 
 // Auto-unlock if already authenticated this session
-window.addEventListener('DOMContentLoaded', () => {
-  const screen = document.getElementById('pwScreen');
-  if (!screen) return;
-  if (sessionStorage.getItem('dsAuth') === '1') {
-    screen.style.display = 'none';
-  } else {
-    const inp = document.getElementById('pwInput');
-    if (inp) setTimeout(() => inp.focus(), 100);
-  }
-});
+
 
 
 
@@ -4526,19 +4909,27 @@ function renderDaily() {
     return s + (e.ptShifts||[]).reduce((ss,sh) => ss+(sh.bonus||0), 0);
   }, 0);
 
+  const daysWithCust = active.filter(e => e.customers > 0);
+  const totalCust    = daysWithCust.reduce((s,e) => s+(e.customers||0), 0);
+  const _mc = d._monthCustomers||0;
+  const _mt = d._monthTicket||0;
+  const avgCust   = _mc || (daysWithCust.length > 0 ? Math.round(totalCust/daysWithCust.length) : 0);
+  const avgTicket = _mt || (totalCust > 0 ? Math.round(totalRev/totalCust) : 0);
+
   document.getElementById('dailyKpis').innerHTML = `
     <div class="kpi-card" style="--accent:var(--gold)">
       <div class="kpi-label">月累計營收</div>
       <div class="kpi-value gold">${fmtRaw(totalRev)}</div>
       <div class="kpi-sub">${active.length} 個營業日</div>
     </div>
-    <div class="kpi-card" style="--accent:var(--purple)">
-      <div class="kpi-label">歌手費合計</div>
-      <div class="kpi-value">${fmtRaw(totalSinger)}</div>
-    </div>
     <div class="kpi-card" style="--accent:var(--blue)">
-      <div class="kpi-label">日結雜支合計</div>
-      <div class="kpi-value">${fmtRaw(totalMisc)}</div>
+      <div class="kpi-label">平均來客數</div>
+      <div class="kpi-value">${avgCust > 0 ? avgCust + ' 人/日' : '—'}</div>
+      <div class="kpi-sub">月累計 ${totalCust} 人</div>
+    </div>
+    <div class="kpi-card" style="--accent:var(--purple)">
+      <div class="kpi-label">平均客單價</div>
+      <div class="kpi-value">${avgTicket > 0 ? 'NT$'+fmtRaw(avgTicket) : '—'}</div>
     </div>
     <div class="kpi-card" style="--accent:var(--green)">
       <div class="kpi-label">獎金池合計</div>
@@ -4562,6 +4953,8 @@ function renderDaily() {
       <td class="td-mono" style="font-size:12px">${e.date}</td>
       <td>${e.closed ? '<span class="chip chip-red">休息</span>' : dayZH}</td>
       <td class="td-right td-gold">${e.closed ? '—' : fmtRaw(e.revenue||0)}</td>
+      <td class="td-right td-mono">${e.closed || !(e.customers) ? '—' : e.customers}</td>
+      <td class="td-right td-mono">${e.closed || !e.customers ? '—' : fmtRaw(Math.round((e.revenue||0)/e.customers))}</td>
       <td class="td-right td-mono">${e.closed ? '—' : fmtRaw(e.singer||0)}</td>
       <td class="td-right td-mono">${e.closed ? '—' : fmtRaw(miscAmt)}</td>
       <td class="td-right ${pool>0?'td-green':'td-muted'}">${e.closed ? '—' : fmtRaw(pool)}</td>
@@ -4580,11 +4973,12 @@ function showAddEntry() {
   _efMiscItems = [];
   _efShifts    = [];
   document.getElementById('entryFormTitle').textContent = '📝 新增每日記錄';
-  document.getElementById('ef-date').value   = new Date().toISOString().slice(0,10);
-  document.getElementById('ef-rev').value    = '';
-  document.getElementById('ef-singer').value = '0';
-  document.getElementById('ef-note').value   = '';
-  document.getElementById('ef-closed').checked = false;
+  document.getElementById('ef-date').value      = new Date().toISOString().slice(0,10);
+  document.getElementById('ef-rev').value       = '';
+  document.getElementById('ef-customers').value = '';
+  document.getElementById('ef-singer').value    = '0';
+  document.getElementById('ef-note').value      = '';
+  document.getElementById('ef-closed').checked  = false;
   updateDayName();
   renderEntryMiscList();
   renderEntryShiftList();
@@ -4606,11 +5000,12 @@ function editEntry(idx) {
   _efShifts = (e.ptShifts||[]).map(s => ({ name:s.name, hourly:s.hourly, hours:s.hours, bonus:s.bonus }));
 
   document.getElementById('entryFormTitle').textContent = '✏️ 編輯 ' + e.date;
-  document.getElementById('ef-date').value    = e.date;
-  document.getElementById('ef-rev').value     = e.revenue||0;
-  document.getElementById('ef-singer').value  = e.singer||0;
-  document.getElementById('ef-note').value    = e.note||'';
-  document.getElementById('ef-closed').checked = !!e.closed;
+  document.getElementById('ef-date').value      = e.date;
+  document.getElementById('ef-rev').value       = e.revenue||0;
+  document.getElementById('ef-customers').value = e.customers||'';
+  document.getElementById('ef-singer').value    = e.singer||0;
+  document.getElementById('ef-note').value      = e.note||'';
+  document.getElementById('ef-closed').checked  = !!e.closed;
   updateDayName();
   renderEntryMiscList();
   renderEntryShiftList();
@@ -4769,11 +5164,12 @@ function calc_pool_daily(rev, dow) {
 }
 
 function saveEntry() {
-  const date   = document.getElementById('ef-date').value;
-  const rev    = +document.getElementById('ef-rev').value || 0;
-  const singer = +document.getElementById('ef-singer').value || 0;
-  const note   = document.getElementById('ef-note').value.trim();
-  const closed = document.getElementById('ef-closed').checked;
+  const date      = document.getElementById('ef-date').value;
+  const rev       = +document.getElementById('ef-rev').value || 0;
+  const customers = +document.getElementById('ef-customers').value || 0;
+  const singer    = +document.getElementById('ef-singer').value || 0;
+  const note      = document.getElementById('ef-note').value.trim();
+  const closed    = document.getElementById('ef-closed').checked;
 
   if (!date) { toast('請選擇日期'); return; }
 
@@ -4781,7 +5177,7 @@ function saveEntry() {
   const misc   = _efMiscItems.reduce((s,m) => s+m.amount, 0);
 
   const entry = {
-    date, dayName: dow, revenue: rev, misc, drinks: 0,
+    date, dayName: dow, revenue: rev, customers, misc, drinks: 0,
     singer, singerTip: 0, extraIncome: 0, note, closed,
     ptShifts: _efShifts.map(s => ({ name:s.name, hourly:s.hourly, hours:s.hours, bonus:s.bonus })),
     miscItems: [..._efMiscItems],
@@ -4808,6 +5204,15 @@ function saveEntry() {
   saveAll();
   hideEntryForm();
   renderDaily();
+}
+
+
+
+function getPrevMonthKey(monthKey) {
+  const [y, m] = monthKey.split('-').map(Number);
+  const d = new Date(y, m-1, 1);
+  d.setMonth(d.getMonth()-1);
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
 }
 
 </script>
