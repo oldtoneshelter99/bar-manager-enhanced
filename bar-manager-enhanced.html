@@ -1898,6 +1898,31 @@ const DOW_COLORS = ['#C8903A','#5592E0','#5592E0','#5592E0','#5592E0','#9B72CF',
 // ─────────────────────────────────────────────────────
 // SEED DATA
 // ─────────────────────────────────────────────────────
+function seedMissingMonths() {
+  // Seed historical months but NEVER overwrite existing user data
+  const _histEl = document.getElementById('historicalDataJSON');
+  if (_histEl) {
+    try {
+      const historicalData = JSON.parse(_histEl.textContent);
+      Object.entries(historicalData).forEach(([k, v]) => {
+        if (!allData[k]) allData[k] = v;  // only add if missing
+      });
+    } catch(e) {}
+  }
+  // Seed 2026-03 only if user hasn't added any entries themselves
+  // (detect: if month has only historical-style data, skip; if user has real entries, keep)
+  if (!allData['2026-03'] || (allData['2026-03'].entries||[]).length === 0) {
+    seedData();  // fresh seed only if completely empty
+  } else {
+    // Month exists with user data - just ensure staff config is current
+    const d = allData['2026-03'];
+    // Update ptStaff hourly rates if user hasn't customized
+    if (d.ptStaff && d.ptStaff.length > 0) {
+      // Don't overwrite - user may have updated these
+    }
+  }
+}
+
 function seedData() {
   const realEntries = [
     {
@@ -2938,13 +2963,13 @@ function seedData() {
     vendorPayments: seedVendors,
     bonusLog:       [],
     ptStaff: [
-      { name:'Wei',  hourly:225, hours:0, bonus:0, salary:0 },
+      { name:'Wei',  hourly:230, hours:0, bonus:0, salary:0 },
       { name:'芷柔', hourly:200, hours:0, bonus:0, salary:0 },
       { name:'柏玄', hourly:200, hours:0, bonus:0, salary:0 },
-      { name:'Nick', hourly:200, hours:0, bonus:0, salary:0 },
+      { name:'Nick', hourly:210, hours:0, bonus:0, salary:0 },
       { name:'Miao', hourly:200, hours:0, bonus:0, salary:0 },
-      { name:'Echo', hourly:200, hours:0, bonus:0, salary:0 },
-      { name:'小葉', hourly:200, hours:0, bonus:0, salary:0 },
+      { name:'Echo', hourly:210, hours:0, bonus:0, salary:0 },
+      { name:'小葉', hourly:210, hours:0, bonus:0, salary:0 },
       { name:'妃妃', hourly:200, hours:0, bonus:0, salary:0 },
       { name:'Debby', hourly:200, hours:0, bonus:0, salary:5000 },
     ],
@@ -2980,7 +3005,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '60', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '62', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -2992,7 +3017,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '60';
+  const DATA_VERSION = '62';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -3001,12 +3026,14 @@ function loadAll() {
       allData = parsed.data || {};
       if (parsed.bonusConfig) bonusConfig = parsed.bonusConfig;
       if (parsed.staffConfig) staffConfig = parsed.staffConfig;
+      seedMissingMonths();  // add any new historical months not yet in user data
     } else {
-      // Version mismatch: clear allData, re-seed fresh from hardcoded data
+      // Version mismatch: PRESERVE user data, just update version + seed missing months
       if (parsed.bonusConfig) bonusConfig = parsed.bonusConfig;
       if (parsed.staffConfig) staffConfig = parsed.staffConfig;
-      allData = {};  // clear stale cache completely
-      seedData();    // load all hardcoded real entries fresh
+      allData = parsed.data || {};  // keep user's existing data
+      seedMissingMonths();  // only seed months that don't exist in user's data
+      saveAll();  // update to new version
     }
   }
   const ftRaw = localStorage.getItem(STORAGE_KEY + '_ftBonus');
@@ -3089,12 +3116,15 @@ function calcMonthStats(key) {
   });
 
   const totalLabor = ptSalary + ftSalary;
+  // Employer insurance (勞保/勞退/健保 in fixedItems) - combine with labor for report
+  const employerIns = d.fixedItems.filter(f => f.cat === 'insurance').reduce((s,f) => s+f.amount, 0);
+  const totalLaborWithIns = totalLabor + employerIns;
   const advTotal = d.advances.reduce((s,a) => a._noExpense ? s : s+a.amount, 0);
   const totalExpense = totalMisc + totalLabor + fixedTotal + vendorTotal + advTotal;
   const netProfit = totalRevenue - totalExpense;
   const profitRate = totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0;
 
-  return { totalRevenue, totalSinger, totalMisc, totalMiscOnly, miscCats, fixedTotal, advancesTotal, vendorTotal, ptSalary, ftSalary, totalLabor, totalExpense, netProfit, profitRate, ptMap, active };
+  return { totalRevenue, totalSinger, totalMisc, totalMiscOnly, miscCats, fixedTotal, advancesTotal, vendorTotal, ptSalary, ftSalary, totalLabor, employerIns, totalLaborWithIns, totalExpense, netProfit, profitRate, ptMap, active };
 }
 
 function calcPtMonthly(key) {
@@ -3948,7 +3978,7 @@ function generateReport() {
   const fixedByCat = {};
   months.forEach(m => {
     (getMonthData(m).fixedItems||[])
-      .filter(f => !FIXED_NON_EXPENSE.includes(f.cat))
+      .filter(f => !FIXED_NON_EXPENSE.includes(f.cat) && f.cat !== 'insurance')  // insurance counted in 人事費用
       .forEach(f => { fixedByCat[f.cat] = (fixedByCat[f.cat]||0) + f.amount; });
   });
 
