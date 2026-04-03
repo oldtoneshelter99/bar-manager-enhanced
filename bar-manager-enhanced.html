@@ -2979,7 +2979,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '51', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '52', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -2991,7 +2991,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '51';
+  const DATA_VERSION = '52';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -4067,7 +4067,7 @@ function generateReport() {
       { label:'固定支出',     fn: m => calcMonthStats(m).fixedTotal,     fmt: fmtRaw,  gold: false },
       { label:'月淨利',       fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); return hist&&hist._netProfit ? hist._netProfit : s.netProfit; }, fmt: fmtRaw, gold: true },
       { label:'利潤率',       fn: m => calcMonthStats(m).profitRate,     fmt: v=>v.toFixed(1)+'%', gold: false },
-      { label:'累積盈餘',     fn: m => { const cd = window._extendedCumul||MONTHLY_CUMUL; const idx2 = cd.findIndex(r=>r.month===m); return idx2>=0 ? cd[idx2].cumulative : 0; }, fmt: v=>v?fmtRaw(v):'—', gold: true },
+      { label:'累積盈餘',     fn: m => { if (!window._extendedCumul) renderCumulativeChart(); const cd = window._extendedCumul||[]; const found = cd.find(r=>r.month===m); return found ? found.cumulative : 0; }, fmt: v=>v?fmtRaw(v):'—', gold: true },
 
     ];
     let tbl = '<table><thead><tr><th>項目</th>';
@@ -5292,6 +5292,14 @@ function getPrevMonthKey(monthKey) {
 
 
 // ─── CUMULATIVE PROFIT CHART ────────────────────────────────
+const MONTHLY_BASE_PROFIT = {
+    '2024-08':-22381,'2024-09':107269,'2024-10':174467,'2024-11':251149,'2024-12':301055,
+    '2025-01':153170,'2025-02':184386,'2025-03':321335,'2025-04':246610,'2025-05':216463,
+    '2025-06':196860,'2025-07':111179,'2025-08':242113,'2025-09':291907,'2025-10':251230,
+    '2025-11':332987,'2025-12':381278,'2026-01':323100,'2026-02':140652
+  };
+const SHAREHOLDER_REPAYMENT = {'2025-08': -630000};
+
 const BANK_RECORDS   = [{"date": "2024-12-09", "balance": 807145, "note": "扣除11月貨款及下月房租"}, {"date": "2025-01-03", "balance": 1028613, "note": "扣除12月貨款及房租"}, {"date": "2025-02-03", "balance": 1119003, "note": "扣除1月貨款及房租"}, {"date": "2025-03-03", "balance": 1339664, "note": "扣除2月貨款及房租"}, {"date": "2025-04-01", "balance": 1643031, "note": "扣除3月貨款及房租"}, {"date": "2025-05-04", "balance": 1845963, "note": "扣除4月貨款及房租"}, {"date": "2025-06-03", "balance": 2042232, "note": "扣除5月貨款及房租"}, {"date": "2025-07-02", "balance": 2262031, "note": "扣除6月貨款及房租"}, {"date": "2025-08-04", "balance": 2376199, "note": "扣除7月貨款及房租"}, {"date": "2025-09-10", "balance": 2057585, "note": "扣除8月貨款及房租"}, {"date": "2026-01-12", "balance": 3412512, "note": "扣除12月貨款及房租"}, {"date": "2026-02-07", "balance": 3569791, "note": "扣除1月貨款及房租"}, {"date": "2026-03-09", "balance": 3760123, "note": "扣除2月貨款及房租"}];
 const MONTHLY_CUMUL  = [{"month": "2024-08", "profit": -22381, "repayment": 0, "cumulative": -22381}, {"month": "2024-09", "profit": 107269, "repayment": 0, "cumulative": 84888}, {"month": "2024-10", "profit": 174467, "repayment": 0, "cumulative": 259355}, {"month": "2024-11", "profit": 251149, "repayment": 0, "cumulative": 510504}, {"month": "2024-12", "profit": 301055, "repayment": 0, "cumulative": 811559}, {"month": "2025-01", "profit": 153170, "repayment": 0, "cumulative": 964729}, {"month": "2025-02", "profit": 184386, "repayment": 0, "cumulative": 1149115}, {"month": "2025-03", "profit": 321335, "repayment": 0, "cumulative": 1470450}, {"month": "2025-04", "profit": 246610, "repayment": 0, "cumulative": 1717060}, {"month": "2025-05", "profit": 216463, "repayment": 0, "cumulative": 1933523}, {"month": "2025-06", "profit": 196860, "repayment": 0, "cumulative": 2130383}, {"month": "2025-07", "profit": 111179, "repayment": 0, "cumulative": 2241562}, {"month": "2025-08", "profit": 242113, "repayment": -630000, "cumulative": 1853675}, {"month": "2025-09", "profit": 291907, "repayment": 0, "cumulative": 2145582}, {"month": "2025-10", "profit": 251230, "repayment": 0, "cumulative": 2396812}, {"month": "2025-11", "profit": 332987, "repayment": 0, "cumulative": 2729799}, {"month": "2025-12", "profit": 381278, "repayment": 0, "cumulative": 3111077}, {"month": "2026-01", "profit": 323100, "repayment": 0, "cumulative": 3434177}, {"month": "2026-02", "profit": 140652, "repayment": 0, "cumulative": 3574829}];
 
@@ -5300,19 +5308,30 @@ function renderCumulativeChart() {
   if (!wrap) return;
   wrap.innerHTML = '';
 
-  // Append live months not yet in MONTHLY_CUMUL
-  const lastHistMonth = MONTHLY_CUMUL[MONTHLY_CUMUL.length - 1].month;
-  let runningTotal = MONTHLY_CUMUL[MONTHLY_CUMUL.length - 1].cumulative;
-  const liveMonths = Object.keys(allData).sort().filter(m => m > lastHistMonth);
-  const extendedCumul = [...MONTHLY_CUMUL];
-  liveMonths.forEach(m => {
-    const stats = calcMonthStats(m);
-    if (stats.totalRevenue > 0) {
-      runningTotal += stats.netProfit;
-      extendedCumul.push({ month: m, profit: stats.netProfit, repayment: 0, cumulative: runningTotal });
+  // Build cumulative from scratch: historical base + live months
+  const allMonths = new Set([
+    ...Object.keys(MONTHLY_BASE_PROFIT),
+    ...Object.keys(allData).filter(m => /^\d{4}-\d{2}$/.test(m) && !MONTHLY_BASE_PROFIT[m])
+  ]);
+  const sortedMonths = Array.from(allMonths).sort();
+
+  let running = 0;
+  const extendedCumul = sortedMonths.map(m => {
+    const baseProft  = MONTHLY_BASE_PROFIT[m];
+    const repayment  = SHAREHOLDER_REPAYMENT[m] || 0;
+    let profit;
+    if (baseProft !== undefined) {
+      profit = baseProft;
+    } else {
+      // Live month - calculate from actual data
+      const stats = calcMonthStats(m);
+      profit = stats.totalRevenue > 0 ? stats.netProfit : null;
     }
-  });
-  // Override MONTHLY_CUMUL reference for this render only
+    if (profit === null) return null;
+    running += profit + repayment;
+    return { month: m, profit, repayment, cumulative: running };
+  }).filter(r => r !== null);
+
   window._extendedCumul = extendedCumul;
 
   // Bank balance records table
