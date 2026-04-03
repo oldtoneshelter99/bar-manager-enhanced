@@ -2979,7 +2979,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '53', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '55', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -2991,7 +2991,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '53';
+  const DATA_VERSION = '55';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -3065,8 +3065,13 @@ function calcMonthStats(key) {
   });
 
   let ptSalary = 0;
+  const ptStaffMap = {};
+  (d.ptStaff||[]).forEach(p => { ptStaffMap[p.name] = p; });
   Object.entries(ptMap).forEach(([name, v]) => {
+    const ptEmp = ptStaffMap[name] || {};
     if (v.hourly > 0) ptSalary += v.hourly * v.hours + v.bonus;
+    else ptSalary += v.bonus;  // hourly=0 but may have bonus
+    ptSalary += (ptEmp.salary||0);  // fixed base salary (e.g. Debby 5000)
   });
 
   // FT salary + bonuses
@@ -3076,7 +3081,7 @@ function calcMonthStats(key) {
       const sh = (e.ptShifts||[]).find(p => p.name === ft.name);
       return s + (sh ? sh.bonus||0 : 0);
     }, 0);
-    ftSalary += (ft.salary||0) + ftBonus;
+    ftSalary += (ft.salary||0) + ftBonus + (ft.quarterBonus||0);
   });
 
   const totalLabor = ptSalary + ftSalary;
@@ -4006,7 +4011,7 @@ function generateReport() {
 
   // Staff table in report
   const staffTableDiv = document.getElementById('reportStaffTable');
-  let staffHtml = `<table><thead><tr><th>姓名</th><th>類型</th><th class="td-right">工時薪資</th><th class="td-right">獎金</th><th class="td-right">底薪</th><th class="td-right">合計</th></tr></thead><tbody>`;
+  let staffHtml = `<table><thead><tr><th>姓名</th><th>類型</th><th class="td-right">工時薪資</th><th class="td-right">出勤獎金</th><th class="td-right">底薪</th><th class="td-right">季獎金</th><th class="td-right">勞健保</th><th class="td-right">實發</th></tr></thead><tbody>`;
   let staffGrand = 0;
   months.forEach(m => {
     const md = getMonthData(m);
@@ -4017,12 +4022,14 @@ function generateReport() {
       const isFT = emp.type === 'FT';
       const ptData = ptMap[emp.name] || { hours:0, bonus:0 };
       const ftBonus = isFT ? active.reduce((s,e) => { const sh=(e.ptShifts||[]).find(p=>p.name===emp.name); return s+(sh?sh.bonus||0:0); }, 0) : 0;
-      const laborPay = isFT ? 0 : (emp.hourly||0)*ptData.hours;
-      const bonus = isFT ? ftBonus : ptData.bonus;
-      const base = emp.salary||0;
-      const total = laborPay + bonus + base;
+      const laborPay  = isFT ? 0 : (emp.hourly||0)*ptData.hours;
+      const bonus     = isFT ? ftBonus : ptData.bonus;
+      const base      = emp.salary||0;
+      const qBonus    = isFT ? (emp.quarterBonus||0) : 0;
+      const ins       = (emp.laborIns||0) + (emp.healthIns||0);
+      const total     = laborPay + bonus + base + qBonus - ins;
       staffGrand += total;
-      staffHtml += `<tr><td>${emp.name}${months.length>1?' ('+m+')':''}</td><td><span class="chip ${isFT?'chip-gold':'chip-blue'}">${isFT?'正職':'PT'}</span></td><td class="td-right td-mono">${fmtRaw(laborPay)}</td><td class="td-right td-gold">${fmtRaw(bonus)}</td><td class="td-right td-mono">${fmtRaw(base)}</td><td class="td-right"><strong>${fmtRaw(total)}</strong></td></tr>`;
+      staffHtml += `<tr><td>${emp.name}${months.length>1?' ('+m+')':''}</td><td><span class="chip ${isFT?'chip-gold':'chip-blue'}">${isFT?'正職':'PT'}</span></td><td class="td-right td-mono">${fmtRaw(laborPay)}</td><td class="td-right td-gold">${fmtRaw(bonus)}</td><td class="td-right td-mono">${fmtRaw(base)}</td><td class="td-right" style="color:var(--purple);font-family:'Space Mono',monospace">${qBonus>0?'+'+fmtRaw(qBonus):'—'}</td><td class="td-right td-red">${ins>0?'-'+fmtRaw(ins):'—'}</td><td class="td-right"><strong class="td-gold">${fmtRaw(total)}</strong></td></tr>`;
     });
   });
   staffHtml += `</tbody><tfoot><tr class="tbl-total"><td colspan="5">人事費用合計</td><td class="td-right td-gold" style="font-size:16px">${fmtRaw(staffGrand)}</td></tr></tfoot></table>`;
