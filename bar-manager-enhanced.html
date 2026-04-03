@@ -2979,7 +2979,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '50', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '51', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -2991,7 +2991,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '50';
+  const DATA_VERSION = '51';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -4660,9 +4660,16 @@ function renderMiscItems() {
   const d = getMonthData(currentMonth);
   // Aggregate misc items from both month-level and per-day entry level
   const monthItems = d.miscItems || [];
-  const entryItems = (d.entries || []).flatMap(e =>
-    (e.miscItems || []).map(m => ({ ...m, _fromEntry: e.date }))
-  );
+  const entryItems = (d.entries || []).flatMap(e => {
+    if (e.miscItems && e.miscItems.length > 0) {
+      // Has detailed breakdown
+      return e.miscItems.map(m => ({ ...m, _fromEntry: e.date }));
+    } else if (e.misc > 0) {
+      // Only has flat amount - show as "其他" with note from entry
+      return [{ date: e.date, desc: e.note || '日結雜支', cat: 'other', amount: e.misc, _fromEntry: e.date }];
+    }
+    return [];
+  });
   const items = [...entryItems, ...monthItems];
   const total = items.reduce((s,i)=>s+i.amount,0);
   document.getElementById('miscTotalChip').textContent = 'NT$' + fmtRaw(total);
