@@ -2979,7 +2979,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '52', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '53', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -2991,7 +2991,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '52';
+  const DATA_VERSION = '53';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -5113,9 +5113,25 @@ function updateDayName() {
 function populateStaffSelect() {
   const d = getMonthData(currentMonth);
   const sel = document.getElementById('ef-staff-name');
+  let ftList = d.ftStaff || [];
+  let ptList = d.ptStaff || [];
+
+  // If current month has no staff, copy from previous month or 2026-03
+  if (ftList.length === 0 && ptList.length === 0) {
+    const allKeys = Object.keys(allData).sort();
+    const prevKey = allKeys[allKeys.indexOf(currentMonth) - 1];
+    const src = prevKey ? getMonthData(prevKey) : getMonthData('2026-03');
+    ftList = (src.ftStaff||[]).map(f => ({ ...f, bonus:0, quarterBonus:0 }));
+    ptList = (src.ptStaff||[]).map(p => ({ ...p, hours:0, bonus:0 }));
+    // Save to current month so it persists
+    d.ftStaff = ftList;
+    d.ptStaff = ptList;
+    saveAll();
+  }
+
   const allNames = [
-    ...(d.ftStaff||[]).map(f => f.name),
-    ...(d.ptStaff||[]).map(p => p.name),
+    ...ftList.map(f => f.name),
+    ...ptList.map(p => p.name),
   ];
   sel.innerHTML = allNames.map(n => `<option value="${n}">${n}</option>`).join('');
 }
