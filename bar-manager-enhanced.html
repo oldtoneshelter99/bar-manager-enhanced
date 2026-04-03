@@ -1697,10 +1697,44 @@ input[type=number] { font-family: 'Space Mono', monospace; }
         <div class="chart-wrap"><canvas id="reportRevenueChart"></canvas></div>
       </div>
 
+      <!-- 累積盈餘 -->
+      <div class="report-section">
+        <div class="report-section-title">📈 累積盈餘走勢</div>
+        <div id="reportCumulativeChart" style="display:none;"></div>
+        <div id="reportBankBalance"></div>
+      </div>
+
       <!-- 季度總覽 -->
       <div class="report-section">
         <div class="report-section-title">📊 季度 / 月份總覽表</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px;">
+          <div class="form-group" style="min-width:120px;max-width:140px;">
+            <label style="font-size:10px;color:var(--muted);">起始月份</label>
+            <select id="qtFrom" onchange="generateReport()" style="padding:6px 10px;font-size:12px;"></select>
+          </div>
+          <div class="form-group" style="min-width:120px;max-width:140px;">
+            <label style="font-size:10px;color:var(--muted);">結束月份</label>
+            <select id="qtTo" onchange="generateReport()" style="padding:6px 10px;font-size:12px;"></select>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:16px;" id="qtColCount"></div>
+        </div>
         <div class="tbl-wrap" id="reportQuarterTable"></div>
+
+        <!-- 銀行帳戶餘額區間 -->
+        <div style="margin-top:24px;">
+          <div style="font-size:11px;color:var(--gold);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:12px;">🏦 銀行帳戶餘額記錄</div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
+            <div class="form-group" style="min-width:120px;max-width:140px;">
+              <label style="font-size:10px;color:var(--muted);">起始日期</label>
+              <input id="bankFrom" type="month" onchange="renderBankSection()" style="padding:6px 10px;font-size:12px;">
+            </div>
+            <div class="form-group" style="min-width:120px;max-width:140px;">
+              <label style="font-size:10px;color:var(--muted);">結束日期</label>
+              <input id="bankTo" type="month" onchange="renderBankSection()" style="padding:6px 10px;font-size:12px;">
+            </div>
+          </div>
+          <div class="tbl-wrap" id="reportBankSection"></div>
+        </div>
       </div>
 
       <!-- 薪資人事 -->
@@ -2945,7 +2979,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '40', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '49', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -2957,7 +2991,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '40';
+  const DATA_VERSION = '49';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -3456,6 +3490,9 @@ function renderPayments() {
         <td><button class="btn btn-danger btn-sm" onclick="delVendor(${i})">✕</button></td>
       </tr>`;
   });
+
+  // Bank records
+  renderBankRecords();
 
   // Fixed items
   renderFixedItems();
@@ -3991,11 +4028,34 @@ function generateReport() {
   staffHtml += `</tbody><tfoot><tr class="tbl-total"><td colspan="5">人事費用合計</td><td class="td-right td-gold" style="font-size:16px">${fmtRaw(staffGrand)}</td></tr></tfoot></table>`;
   staffTableDiv.innerHTML = staffHtml;
 
+  // Cumulative profit chart
+  renderCumulativeChart();
+  renderBankSection();
+
+  // Bank by range
+  renderBankByRange();
+
   // Quarterly summary table
   const qtDiv = document.getElementById('reportQuarterTable');
   if (qtDiv) {
     const allMonthKeys = Object.keys(allData).sort();
-    const cols = allMonthKeys.slice(-6); // last 6 months for context
+
+    // Populate selectors
+    const qtFrom = document.getElementById('qtFrom');
+    const qtTo   = document.getElementById('qtTo');
+    if (qtFrom && qtTo) {
+      const curFrom = qtFrom.value || allMonthKeys[Math.max(0,allMonthKeys.length-12)];
+      const curTo   = qtTo.value   || allMonthKeys[allMonthKeys.length-1];
+      if (!qtFrom.options.length || qtFrom.options.length !== allMonthKeys.length) {
+        qtFrom.innerHTML = allMonthKeys.map(m=>`<option value="${m}" ${m===curFrom?'selected':''}>${m}</option>`).join('');
+        qtTo.innerHTML   = allMonthKeys.map(m=>`<option value="${m}" ${m===curTo?'selected':''}>${m}</option>`).join('');
+      }
+    }
+    const fromVal = qtFrom ? qtFrom.value : allMonthKeys[Math.max(0,allMonthKeys.length-12)];
+    const toVal   = qtTo   ? qtTo.value   : allMonthKeys[allMonthKeys.length-1];
+    const cols = allMonthKeys.filter(m => m >= fromVal && m <= toVal);
+    const colCount = document.getElementById('qtColCount');
+    if (colCount) colCount.textContent = `共 ${cols.length} 個月份`;
     const rowDefs = [
       { label:'月營收',       fn: m => calcMonthStats(m).totalRevenue,   fmt: fmtRaw,  gold: true },
       { label:'營業天數',     fn: m => { const d=getMonthData(m); const hist=d.entries.find(e=>e._isHistorical); return hist ? (hist._bizDays||1) : d.entries.filter(e=>!e.closed).length; }, fmt: v=>v+'天', gold: false },
@@ -4007,6 +4067,8 @@ function generateReport() {
       { label:'固定支出',     fn: m => calcMonthStats(m).fixedTotal,     fmt: fmtRaw,  gold: false },
       { label:'月淨利',       fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); return hist&&hist._netProfit ? hist._netProfit : s.netProfit; }, fmt: fmtRaw, gold: true },
       { label:'利潤率',       fn: m => calcMonthStats(m).profitRate,     fmt: v=>v.toFixed(1)+'%', gold: false },
+      { label:'累積盈餘',     fn: m => { const cd = window._extendedCumul||MONTHLY_CUMUL; const idx2 = cd.findIndex(r=>r.month===m); return idx2>=0 ? cd[idx2].cumulative : 0; }, fmt: v=>v?fmtRaw(v):'—', gold: true },
+
     ];
     let tbl = '<table><thead><tr><th>項目</th>';
     cols.forEach(m => { tbl += `<th class="td-right">${m}</th>`; });
@@ -5213,6 +5275,234 @@ function getPrevMonthKey(monthKey) {
   const d = new Date(y, m-1, 1);
   d.setMonth(d.getMonth()-1);
   return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+}
+
+
+
+// ─── CUMULATIVE PROFIT CHART ────────────────────────────────
+const BANK_RECORDS   = [{"date": "2024-12-09", "balance": 807145, "note": "扣除11月貨款及下月房租"}, {"date": "2025-01-03", "balance": 1028613, "note": "扣除12月貨款及房租"}, {"date": "2025-02-03", "balance": 1119003, "note": "扣除1月貨款及房租"}, {"date": "2025-03-03", "balance": 1339664, "note": "扣除2月貨款及房租"}, {"date": "2025-04-01", "balance": 1643031, "note": "扣除3月貨款及房租"}, {"date": "2025-05-04", "balance": 1845963, "note": "扣除4月貨款及房租"}, {"date": "2025-06-03", "balance": 2042232, "note": "扣除5月貨款及房租"}, {"date": "2025-07-02", "balance": 2262031, "note": "扣除6月貨款及房租"}, {"date": "2025-08-04", "balance": 2376199, "note": "扣除7月貨款及房租"}, {"date": "2025-09-10", "balance": 2057585, "note": "扣除8月貨款及房租"}, {"date": "2026-01-12", "balance": 3412512, "note": "扣除12月貨款及房租"}, {"date": "2026-02-07", "balance": 3569791, "note": "扣除1月貨款及房租"}, {"date": "2026-03-09", "balance": 3760123, "note": "扣除2月貨款及房租"}];
+const MONTHLY_CUMUL  = [{"month": "2024-08", "profit": -22381, "repayment": 0, "cumulative": -22381}, {"month": "2024-09", "profit": 107269, "repayment": 0, "cumulative": 84888}, {"month": "2024-10", "profit": 174467, "repayment": 0, "cumulative": 259355}, {"month": "2024-11", "profit": 251149, "repayment": 0, "cumulative": 510504}, {"month": "2024-12", "profit": 301055, "repayment": 0, "cumulative": 811559}, {"month": "2025-01", "profit": 153170, "repayment": 0, "cumulative": 964729}, {"month": "2025-02", "profit": 184386, "repayment": 0, "cumulative": 1149115}, {"month": "2025-03", "profit": 321335, "repayment": 0, "cumulative": 1470450}, {"month": "2025-04", "profit": 246610, "repayment": 0, "cumulative": 1717060}, {"month": "2025-05", "profit": 216463, "repayment": 0, "cumulative": 1933523}, {"month": "2025-06", "profit": 196860, "repayment": 0, "cumulative": 2130383}, {"month": "2025-07", "profit": 111179, "repayment": 0, "cumulative": 2241562}, {"month": "2025-08", "profit": 242113, "repayment": -630000, "cumulative": 1853675}, {"month": "2025-09", "profit": 291907, "repayment": 0, "cumulative": 2145582}, {"month": "2025-10", "profit": 251230, "repayment": 0, "cumulative": 2396812}, {"month": "2025-11", "profit": 332987, "repayment": 0, "cumulative": 2729799}, {"month": "2025-12", "profit": 381278, "repayment": 0, "cumulative": 3111077}, {"month": "2026-01", "profit": 323100, "repayment": 0, "cumulative": 3434177}, {"month": "2026-02", "profit": 140652, "repayment": 0, "cumulative": 3574829}];
+
+function renderCumulativeChart() {
+  const wrap = document.getElementById('reportCumulativeChart');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+
+  // Append live months not yet in MONTHLY_CUMUL
+  const lastHistMonth = MONTHLY_CUMUL[MONTHLY_CUMUL.length - 1].month;
+  let runningTotal = MONTHLY_CUMUL[MONTHLY_CUMUL.length - 1].cumulative;
+  const liveMonths = Object.keys(allData).sort().filter(m => m > lastHistMonth);
+  const extendedCumul = [...MONTHLY_CUMUL];
+  liveMonths.forEach(m => {
+    const stats = calcMonthStats(m);
+    if (stats.totalRevenue > 0) {
+      runningTotal += stats.netProfit;
+      extendedCumul.push({ month: m, profit: stats.netProfit, repayment: 0, cumulative: runningTotal });
+    }
+  });
+  // Override MONTHLY_CUMUL reference for this render only
+  window._extendedCumul = extendedCumul;
+
+  // Bank balance records table
+  const bb = document.getElementById('reportBankBalance');
+  if (bb) {
+    const latest  = getBankRecords()[getBankRecords().length - 1] || BANK_RECORDS[BANK_RECORDS.length - 1];
+    const cumData = window._extendedCumul || MONTHLY_CUMUL;
+    const lastCum = cumData[cumData.length - 1];
+    bb.innerHTML = `
+      <!-- KPI cards -->
+      <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:20px;">
+        <div style="background:var(--card);border:1px solid rgba(200,144,58,0.3);border-radius:8px;padding:16px 24px;text-align:center;min-width:180px;">
+          <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;margin-bottom:6px;">累積淨利（至 ${lastCum.month}）</div>
+          <div style="font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--gold-l)">NT$${fmtRaw(lastCum.cumulative)}</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px;">含股東還款 -NT$630,000</div>
+        </div>
+        <div style="background:var(--card);border:1px solid rgba(86,201,123,0.3);border-radius:8px;padding:16px 24px;text-align:center;min-width:180px;">
+          <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;margin-bottom:6px;">銀行現金餘額（${latest.date}）</div>
+          <div style="font-family:'Space Mono',monospace;font-size:22px;font-weight:700;color:var(--green)">NT$${fmtRaw(latest.balance)}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:4px;">${latest.note}</div>
+        </div>
+      </div>
+      <!-- Monthly table -->
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr>
+            <th>月份</th>
+            <th class="td-right">月淨利</th>
+            <th class="td-right">股東還款</th>
+            <th class="td-right">累積盈餘</th>
+          </tr></thead>
+          <tbody>
+          ${cumData.map(r => `<tr>
+            <td class="td-mono" style="font-size:12px">${r.month}</td>
+            <td class="td-right td-mono" style="color:${r.profit>=0?'var(--green)':'var(--red)'}">${r.profit>=0?'+':''}${fmtRaw(r.profit)}</td>
+            <td class="td-right td-red" style="font-family:'Space Mono',monospace">${r.repayment?'-'+fmtRaw(Math.abs(r.repayment)):'—'}</td>
+            <td class="td-right td-gold" style="font-weight:700">${fmtRaw(r.cumulative)}</td>
+          </tr>`).join('')}
+          </tbody>
+          <tfoot><tr class="tbl-total">
+            <td colspan="3">累積盈餘（至 ${lastCum.month}）</td>
+            <td class="td-right" style="font-size:16px;">${fmtRaw(lastCum.cumulative)}</td>
+          </tr></tfoot>
+        </table>
+      </div>
+      <!-- Bank records -->
+      <details style="margin-top:16px;font-size:12px;color:var(--muted);cursor:pointer;">
+        <summary style="margin-bottom:8px;color:var(--gold)">🏦 銀行帳戶結餘記錄（${BANK_RECORDS.length}筆）</summary>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>日期</th><th class="td-right">帳戶餘額</th><th>備注</th></tr></thead>
+          <tbody>${BANK_RECORDS.map(r=>`<tr>
+            <td class="td-mono" style="font-size:11px">${r.date}</td>
+            <td class="td-right td-gold" style="font-family:'Space Mono',monospace">${fmtRaw(r.balance)}</td>
+            <td class="td-muted" style="font-size:11px">${r.note}</td>
+          </tr>`).join('')}</tbody>
+        </table></div>
+      </details>`;
+  }
+}
+
+
+
+// ─── BANK BALANCE RECORDS ─────────────────────────────────────
+// Stored in localStorage separately from monthly data
+function getBankRecords() {
+  try {
+    const raw = localStorage.getItem('dsBarManager_bank');
+    return raw ? JSON.parse(raw) : [...BANK_RECORDS];  // seed from historical
+  } catch { return [...BANK_RECORDS]; }
+}
+function saveBankRecords(records) {
+  localStorage.setItem('dsBarManager_bank', JSON.stringify(records));
+}
+
+function addBankRecord() {
+  const date   = document.getElementById('bank-date').value;
+  const amount = +document.getElementById('bank-amount').value;
+  const note   = document.getElementById('bank-note').value.trim();
+  if (!date || !amount) { toast('請填寫日期和金額'); return; }
+  const records = getBankRecords();
+  records.push({ date, balance: amount, note });
+  records.sort((a,b) => a.date.localeCompare(b.date));
+  saveBankRecords(records);
+  renderBankRecords();
+  document.getElementById('bank-amount').value = '';
+  document.getElementById('bank-note').value   = '';
+  toast('✓ 銀行餘額已新增');
+}
+
+function delBankRecord(i) {
+  if (!confirm('確定刪除？')) return;
+  const records = getBankRecords();
+  records.splice(i, 1);
+  saveBankRecords(records);
+  renderBankRecords();
+}
+
+function renderBankRecords() {
+  const records = getBankRecords();
+  const tbody   = document.getElementById('bankTableBody');
+  const chip    = document.getElementById('bankLatestChip');
+  if (!tbody) return;
+  const latest  = records[records.length - 1];
+  if (chip && latest) chip.textContent = latest.date + ' NT$' + fmtRaw(latest.balance);
+  tbody.innerHTML = records.map((r, i) => `
+    <tr>
+      <td class="td-mono" style="font-size:12px">${r.date}</td>
+      <td class="td-right td-gold" style="font-family:'Space Mono',monospace">${fmtRaw(r.balance)}</td>
+      <td class="td-muted" style="font-size:12px">${r.note||'—'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="delBankRecord(${i})">✕</button></td>
+    </tr>`).join('');
+}
+
+
+
+function renderBankSection() {
+  const el = document.getElementById('reportBankSection');
+  if (!el) return;
+
+  const recs = getBankRecords();
+  if (!recs.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">尚無銀行餘額記錄</div>'; return; }
+
+  // Set default range if empty
+  const fromEl = document.getElementById('bankFrom');
+  const toEl   = document.getElementById('bankTo');
+  if (fromEl && !fromEl.value) fromEl.value = recs[0].date.slice(0,7);
+  if (toEl   && !toEl.value)   toEl.value   = recs[recs.length-1].date.slice(0,7);
+
+  const from = fromEl ? fromEl.value : '';
+  const to   = toEl   ? toEl.value   : '';
+
+  const filtered = recs.filter(r => {
+    const ym = r.date.slice(0,7);
+    return (!from || ym >= from) && (!to || ym <= to);
+  });
+
+  if (!filtered.length) { el.innerHTML = '<div style="color:var(--muted);font-size:13px;">此區間無記錄</div>'; return; }
+
+  el.innerHTML = `<table>
+    <thead><tr>
+      <th>日期</th>
+      <th class="td-right">帳戶餘額</th>
+      <th class="td-right">月增減</th>
+      <th>備注</th>
+    </tr></thead>
+    <tbody>
+    ${filtered.map((r, i) => {
+      const prev = i > 0 ? filtered[i-1].balance : null;
+      const diff = prev !== null ? r.balance - prev : null;
+      return `<tr>
+        <td class="td-mono" style="font-size:12px">${r.date}</td>
+        <td class="td-right td-gold" style="font-family:'Space Mono',monospace;font-weight:700">${fmtRaw(r.balance)}</td>
+        <td class="td-right" style="font-family:'Space Mono',monospace;color:${diff===null?'var(--muted)':diff>=0?'var(--green)':'var(--red)'}">
+          ${diff===null ? '—' : (diff>=0?'+':'')+fmtRaw(diff)}
+        </td>
+        <td class="td-muted" style="font-size:12px">${r.note||'—'}</td>
+      </tr>`;
+    }).join('')}
+    </tbody>
+    <tfoot><tr class="tbl-total">
+      <td colspan="3">最新餘額（${filtered[filtered.length-1].date}）</td>
+      <td class="td-right" style="font-size:15px;">${fmtRaw(filtered[filtered.length-1].balance)}</td>
+    </tr></tfoot>
+  </table>`;
+}
+
+
+
+function renderBankByRange() {
+  const el = document.getElementById('reportBankByRange');
+  if (!el) return;
+  const qtFrom = document.getElementById('qtFrom');
+  const qtTo   = document.getElementById('qtTo');
+  const allKeys = Object.keys(allData).sort();
+  const fromVal = qtFrom ? qtFrom.value : allKeys[0];
+  const toVal   = qtTo   ? qtTo.value   : allKeys[allKeys.length-1];
+
+  // Filter bank records within range
+  const recs = getBankRecords().filter(r => r.date >= fromVal && r.date <= toVal + '-31');
+
+  if (!recs.length) {
+    el.innerHTML = '<div style="color:var(--muted);font-size:13px;">此區間無銀行餘額記錄</div>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div class="tbl-wrap">
+      <table style="width:auto;">
+        <thead><tr>
+          <th>日期</th>
+          <th class="td-right">帳戶餘額</th>
+          <th>備注</th>
+        </tr></thead>
+        <tbody>
+          ${recs.map(r => `<tr>
+            <td class="td-mono" style="font-size:12px">${r.date}</td>
+            <td class="td-right" style="font-family:'Space Mono',monospace;color:var(--green);font-weight:700">NT$${fmtRaw(r.balance)}</td>
+            <td class="td-muted" style="font-size:12px">${r.note||'—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
 }
 
 </script>
