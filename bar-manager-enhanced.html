@@ -2834,7 +2834,8 @@ function seedData() {
         {"cat": "insurance",  "amount": 3822,   "note": "健保費",               "date": "2026-03-31"},
         {"cat": "cleaning",   "amount": 3500,   "note": "垃圾清潔費",           "date": "2026-03-31"},
         {"cat": "accounting", "amount": 37971,  "note": "會計及401稅款費用",     "date": "2026-03-31"},
-        {"cat": "cardFee",    "amount": 19115,  "note": "信用卡手續費",          "date": "2026-03-31"}
+        {"cat": "cardFee",    "amount": 19115,  "note": "信用卡手續費",          "date": "2026-03-31"},
+        {"cat": "equipment",  "amount": 5900,   "note": "冷氣清洗費用（Debby代墊）", "date": "2026-03-01"}
     ],
     advances:       [
     {
@@ -2979,7 +2980,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '55', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '60', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -2991,7 +2992,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '55';
+  const DATA_VERSION = '60';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -3051,7 +3052,7 @@ function calcMonthStats(key) {
     if (unitemized > 0) miscCats.other += unitemized;
   });
   const fixedTotal = d.fixedItems.filter(f => !['prevBalance','cashFloat'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
-  const advancesTotal = d.advances.reduce((s,a) => s+a.amount, 0);  // 計入支出
+  const advancesTotal = d.advances.reduce((s,a) => a._noExpense ? s : s+a.amount, 0);  // 計入支出（_noExpense 除外）
   const vendorTotal = (d.vendorPayments||[]).reduce((s,v) => s+v.amount, 0);
 
   // PT salary from ptShifts
@@ -3067,10 +3068,13 @@ function calcMonthStats(key) {
   let ptSalary = 0;
   const ptStaffMap = {};
   (d.ptStaff||[]).forEach(p => { ptStaffMap[p.name] = p; });
+  // FT staff names (hourly=0 in ptShifts, bonuses counted separately in ftSalary)
+  const ftNames = new Set((d.ftStaff||[]).map(f => f.name));
   Object.entries(ptMap).forEach(([name, v]) => {
+    if (ftNames.has(name)) return;  // skip FT staff - their pay handled in ftSalary
     const ptEmp = ptStaffMap[name] || {};
     if (v.hourly > 0) ptSalary += v.hourly * v.hours + v.bonus;
-    else ptSalary += v.bonus;  // hourly=0 but may have bonus
+    else ptSalary += v.bonus;  // hourly=0 PT with bonus only
     ptSalary += (ptEmp.salary||0);  // fixed base salary (e.g. Debby 5000)
   });
 
@@ -3085,7 +3089,7 @@ function calcMonthStats(key) {
   });
 
   const totalLabor = ptSalary + ftSalary;
-  const advTotal = d.advances.reduce((s,a) => s+a.amount, 0);
+  const advTotal = d.advances.reduce((s,a) => a._noExpense ? s : s+a.amount, 0);
   const totalExpense = totalMisc + totalLabor + fixedTotal + vendorTotal + advTotal;
   const netProfit = totalRevenue - totalExpense;
   const profitRate = totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0;
@@ -3702,7 +3706,19 @@ function renderAnalysis() {
   Object.entries(_fixedCatTmp).forEach(function(entry) {
     if (entry[1] > 0) expData.push({ label: FIXED_CAT_LABELS[entry[0]]||entry[0], val: entry[1], color: FIXED_CAT_COLORS[entry[0]]||'#88785A' });
   });
-  expData.push({ label:'廠商貨款', val: stats.vendorTotal, color:'#FF3C6E' });
+  // Merge advances into categories for analysis chart
+  const advExpData = {};
+  (d.advances||[]).filter(a=>!a._noExpense).forEach(a => {
+    const [type] = (a.cat||'misc_other').split('_');
+    if (type==='misc') advExpData['日結雜支'] = (advExpData['日結雜支']||0)+a.amount;
+    else if (type==='vendor') advExpData['廠商貨款'] = (advExpData['廠商貨款']||0)+a.amount;
+  });
+  expData.push({ label:'廠商貨款', val: stats.vendorTotal + (advExpData['廠商貨款']||0), color:'#FF3C6E' });
+  // Adjust 日結雜支 for misc advances
+  if (advExpData['日結雜支']) {
+    const miscIdx = expData.findIndex(x=>x.label==='日結雜支');
+    if (miscIdx>=0) expData[miscIdx].val += advExpData['日結雜支'];
+  }
   const expDataFiltered = expData.filter(x => x.val > 0);
 
   destroyChart('expenseChart');
@@ -3936,6 +3952,33 @@ function generateReport() {
       .forEach(f => { fixedByCat[f.cat] = (fixedByCat[f.cat]||0) + f.amount; });
   });
 
+  // Merge advances (with _noExpense=false) into their categories
+  const advByCat = {};
+  months.forEach(m => {
+    (getMonthData(m).advances||[]).filter(a => !a._noExpense).forEach(a => {
+      const cat = a.cat || 'misc_other';
+      const [type, subcat] = cat.split('_');
+      if (type === 'fixed') {
+        advByCat['fixed_' + subcat] = (advByCat['fixed_' + subcat]||0) + a.amount;
+      } else if (type === 'vendor') {
+        advByCat['vendor'] = (advByCat['vendor']||0) + a.amount;
+      } else {
+        advByCat['misc'] = (advByCat['misc']||0) + a.amount;
+      }
+    });
+  });
+
+  // Merge advance fixed amounts into fixedByCat
+  Object.entries(advByCat).forEach(([k, v]) => {
+    if (k.startsWith('fixed_')) {
+      const cat = k.replace('fixed_','');
+      fixedByCat[cat] = (fixedByCat[cat]||0) + v;
+    }
+  });
+
+  const miscWithAdv = totMiscOnly + (advByCat['misc']||0);
+  const vndWithAdv  = totVnd + (advByCat['vendor']||0);
+
   const fixedWfItems = Object.entries(fixedByCat)
     .sort((a,b) => b[1]-a[1])
     .map(([cat, amt]) => ({
@@ -3945,13 +3988,12 @@ function generateReport() {
     }));
 
   const items = [
-    { label:'總營收',  val:totRev,      color:'var(--gold-l)', isTotal:true },
-    { label:'歌手費',  val:-totSinger,  color:'var(--purple)' },
-    { label:'日結雜支', val:-totMiscOnly, color:'var(--blue)' },
-    { label:'人事費用', val:-totLabor,   color:'var(--green)' },
-    { label:'廠商貨款', val:-totVnd,     color:'#E8C07A' },
+    { label:'總營收',   val:totRev,       color:'var(--gold-l)', isTotal:true },
+    { label:'歌手費',   val:-totSinger,   color:'var(--purple)' },
+    { label:'日結雜支', val:-miscWithAdv,  color:'var(--blue)' },
+    { label:'人事費用', val:-totLabor,     color:'var(--green)' },
+    { label:'廠商貨款', val:-vndWithAdv,   color:'#E8C07A' },
     ...fixedWfItems,
-    { label:'代墊款支出', val:-totAdv, color:'var(--blue)' },
   ].filter(x => x.val !== 0);
 
   const wf = document.getElementById('reportWaterfall');
@@ -3977,7 +4019,7 @@ function generateReport() {
     { label:'固定支出', val:totFixed, color:'#E8C07A' },
     { label:'日常可變', val:totMisc, color:'#6AABF7' },
     { label:'廠商貨款', val:totVnd, color:'#C8903A' },
-    { label:'代墊款支出', val:totAdv, color:'#6AABF7' },
+    // advances merged into their categories above
   ].filter(x => x.val > 0);
 
   const ctx5 = document.getElementById('reportExpenseChart').getContext('2d');
@@ -4539,6 +4581,7 @@ function saveGsSettings() {
 }
 
 async function pushToSheets() {
+  cleanAllData();  // clean before pushing to Sheets
   const el = document.getElementById('gsTestResult');
   if (!GS_URL) { el.textContent = '請先儲存 URL'; return; }
   el.textContent = '推送中（no-cors 模式）...';
