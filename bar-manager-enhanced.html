@@ -3008,7 +3008,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '77', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '78', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3020,7 +3020,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '77';
+  const DATA_VERSION = '78';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -4055,11 +4055,12 @@ function generateReport() {
   // Expense donut for report
   destroyChart('reportExpenseChart');
   const expItems = [
-    { label:'人事', val:totLabor, color:'#56C97B' },
-    { label:'固定支出', val:totFixed, color:'#E8C07A' },
-    { label:'日常可變', val:totMisc, color:'#6AABF7' },
-    { label:'廠商貨款', val:totVnd, color:'#C8903A' },
-    // advances merged into their categories above
+    { label:'人事（含勞健保）', val:totLaborIns, color:'#56C97B' },
+    { label:'固定支出',       val:totFixed,    color:'#E8C07A' },
+    { label:'廣告費',         val:totAds,      color:'#9B72CF' },
+    { label:'日結雜支（含代墊）', val:totMiscOnly+(totAdv||0), color:'#6AABF7' },
+    { label:'歌手費',         val:totSinger,   color:'#E05555' },
+    { label:'廠商貨款',       val:totVnd,      color:'#C8903A' },
   ].filter(x => x.val > 0);
 
   const ctx5 = document.getElementById('reportExpenseChart').getContext('2d');
