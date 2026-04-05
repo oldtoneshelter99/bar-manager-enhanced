@@ -3005,7 +3005,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '74', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '75', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3017,7 +3017,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '74';
+  const DATA_VERSION = '75';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -4150,7 +4150,7 @@ function generateReport() {
       { label:'廠商貨款',     fn: m => calcMonthStats(m).vendorTotal,    fmt: fmtRaw,  gold: false },
       { label:'固定支出',     fn: m => { const d=getMonthData(m); return d.fixedItems.filter(f=>!['prevBalance','cashFloat','insurance','miscMonthly'].includes(f.cat)).reduce((s,f)=>s+f.amount,0); }, fmt: fmtRaw, gold: false },
       { label:'月淨利',       fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); return hist&&hist._netProfit ? hist._netProfit : s.netProfit; }, fmt: fmtRaw, gold: true },
-      { label:'利潤率',       fn: m => calcMonthStats(m).profitRate,     fmt: v=>v.toFixed(1)+'%', gold: false },
+      { label:'利潤率',       fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); const net = hist&&hist._netProfit ? hist._netProfit : s.netProfit; return s.totalRevenue>0 ? net/s.totalRevenue*100 : 0; }, fmt: v=>v.toFixed(1)+'%', gold: false },
       { label:'累積盈餘',     fn: m => { if (!window._extendedCumul) renderCumulativeChart(); const cd = window._extendedCumul||[]; const found = cd.find(r=>r.month===m); return found ? found.cumulative : 0; }, fmt: v=>v?fmtRaw(v):'—', gold: true },
 
     ];
