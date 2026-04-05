@@ -3005,7 +3005,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '72', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '74', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3017,7 +3017,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '72';
+  const DATA_VERSION = '74';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -3079,7 +3079,7 @@ function calcMonthStats(key) {
     const unitemized = (e.misc||0) - itemized;
     if (unitemized > 0) miscCats.other += unitemized;
   });
-  const fixedTotal = d.fixedItems.filter(f => !['prevBalance','cashFloat','insurance'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
+  const fixedTotal = d.fixedItems.filter(f => !['prevBalance','cashFloat','insurance','miscMonthly'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
   const advancesTotal = d.advances.reduce((s,a) => a._noExpense ? s : s+a.amount, 0);  // 計入支出（_noExpense 除外）
   const vendorTotal = (d.vendorPayments||[]).reduce((s,v) => s+v.amount, 0);
 
@@ -4145,10 +4145,10 @@ function generateReport() {
       { label:'平均來客數/日',fn: m => { const d=getMonthData(m); if (d._monthCustomers) return d._monthCustomers; const hist=d.entries.find(e=>e._isHistorical); if (hist&&hist._avgDailyCust) return hist._avgDailyCust; const ce=d.entries.filter(e=>!e.closed&&e.customers>0); return ce.length?Math.round(ce.reduce((s,e)=>s+(e.customers||0),0)/ce.length):0; }, fmt: v=>v?v+'人':'—', gold: false },
       { label:'客單價',       fn: m => { const d=getMonthData(m); if (d._monthTicket) return d._monthTicket; const hist=d.entries.find(e=>e._isHistorical); if (hist&&hist._avgTicket) return hist._avgTicket; const ce=d.entries.filter(e=>!e.closed&&e.customers>0); const tc=ce.reduce((s,e)=>s+(e.customers||0),0); return tc?Math.round(calcMonthStats(m).totalRevenue/tc):0; }, fmt: v=>v?'NT$'+fmtRaw(v):'—', gold: false },
       { label:'歌手費',       fn: m => getMonthData(m).entries.reduce((s,e)=>s+(e.singer||0),0), fmt: fmtRaw, gold: false },
-      { label:'人事費用',     fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); return hist ? (hist._labor||s.totalLabor) : (s.totalLaborWithIns||s.totalLabor); }, fmt: fmtRaw, gold: false },
+      { label:'人事費用（含勞健保）', fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); return hist ? (hist._labor||s.totalLabor) : (s.totalLaborWithIns||s.totalLabor); }, fmt: fmtRaw, gold: false },
       { label:'日結雜支（含代墊）', fn: m => { const s=calcMonthStats(m); const adv=getMonthData(m).advances.filter(a=>!a._noExpense).reduce((ss,a)=>ss+a.amount,0); return s.totalMiscOnly + adv; }, fmt: fmtRaw, gold: false },
       { label:'廠商貨款',     fn: m => calcMonthStats(m).vendorTotal,    fmt: fmtRaw,  gold: false },
-      { label:'固定支出',     fn: m => { const d=getMonthData(m); return d.fixedItems.filter(f=>!['prevBalance','cashFloat','insurance'].includes(f.cat)).reduce((s,f)=>s+f.amount,0); }, fmt: fmtRaw, gold: false },
+      { label:'固定支出',     fn: m => { const d=getMonthData(m); return d.fixedItems.filter(f=>!['prevBalance','cashFloat','insurance','miscMonthly'].includes(f.cat)).reduce((s,f)=>s+f.amount,0); }, fmt: fmtRaw, gold: false },
       { label:'月淨利',       fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); return hist&&hist._netProfit ? hist._netProfit : s.netProfit; }, fmt: fmtRaw, gold: true },
       { label:'利潤率',       fn: m => calcMonthStats(m).profitRate,     fmt: v=>v.toFixed(1)+'%', gold: false },
       { label:'累積盈餘',     fn: m => { if (!window._extendedCumul) renderCumulativeChart(); const cd = window._extendedCumul||[]; const found = cd.find(r=>r.month===m); return found ? found.cumulative : 0; }, fmt: v=>v?fmtRaw(v):'—', gold: true },
