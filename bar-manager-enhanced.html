@@ -3005,7 +3005,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '70', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '72', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3017,7 +3017,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '70';
+  const DATA_VERSION = '72';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -3062,10 +3062,11 @@ function getMonthData(key) {
 function calcMonthStats(key) {
   const d = getMonthData(key);
   const active = d.entries.filter(e => !e.closed);
-  const totalRevenue = active.reduce((s,e) => s + (e.revenue||0) + (e.extraIncome||0), 0);
-  const totalSinger = active.reduce((s,e) => s + (e.singer||0) + (e.singerTip||0), 0);
-  const totalMisc = active.reduce((s,e) => s + (e.misc||0) + (e.drinks||0) + (e.singer||0) + (e.singerTip||0), 0);
+  const totalRevenue  = active.reduce((s,e) => s + (e.revenue||0) + (e.extraIncome||0), 0);
+  const totalSinger   = active.reduce((s,e) => s + (e.singer||0) + (e.singerTip||0), 0);
   const totalMiscOnly = active.reduce((s,e) => s + (e.misc||0) + (e.drinks||0), 0);
+  // totalMisc kept for legacy (misc+drinks+singer) - used in totalExpense
+  const totalMisc = totalMiscOnly + totalSinger;
   // miscItems breakdown
   const miscCats = { food:0, drinks:0, deco:0, hygiene:0, repair:0, other:0 };
   active.forEach(e => {
@@ -3078,7 +3079,7 @@ function calcMonthStats(key) {
     const unitemized = (e.misc||0) - itemized;
     if (unitemized > 0) miscCats.other += unitemized;
   });
-  const fixedTotal = d.fixedItems.filter(f => !['prevBalance','cashFloat'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
+  const fixedTotal = d.fixedItems.filter(f => !['prevBalance','cashFloat','insurance'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
   const advancesTotal = d.advances.reduce((s,a) => a._noExpense ? s : s+a.amount, 0);  // 計入支出（_noExpense 除外）
   const vendorTotal = (d.vendorPayments||[]).reduce((s,v) => s+v.amount, 0);
 
@@ -3120,7 +3121,9 @@ function calcMonthStats(key) {
   const employerIns = d.fixedItems.filter(f => f.cat === 'insurance').reduce((s,f) => s+f.amount, 0);
   const totalLaborWithIns = totalLabor + employerIns;
   const advTotal = d.advances.reduce((s,a) => a._noExpense ? s : s+a.amount, 0);
-  const totalExpense = totalMisc + totalLabor + fixedTotal + vendorTotal + advTotal;
+  // totalExpense = all expenses (consistent with report display)
+  // singer included via totalMisc, insurance via totalLaborWithIns
+  const totalExpense = totalMiscOnly + totalSinger + totalLaborWithIns + fixedTotal + vendorTotal + advTotal;
   const netProfit = totalRevenue - totalExpense;
   const profitRate = totalRevenue > 0 ? (netProfit / totalRevenue * 100) : 0;
 
@@ -4426,7 +4429,7 @@ function showModule(name) {
   else if (name === 'salary') { renderSalary(); renderFTBonusHistory(); }
   else if (name === 'payments') renderPayments();
   else if (name === 'analysis') renderAnalysis();
-  else if (name === 'report') generateReport();
+  else if (name === 'report') { setTimeout(generateReport, 50); }
   else if (name === 'tax') { taxSelectedMonths = new Set(); renderTax(); }
 }
 
@@ -4966,6 +4969,10 @@ function delFixedItem(i) {
 }
 
 function renderFixedItems() {
+  // If report tab is active, refresh it
+  if (document.querySelector('.nav-item.active')?.id === 'nav-report') {
+    setTimeout(generateReport, 100);
+  }
   const d = getMonthData(currentMonth);
   const items = d.fixedItems || [];
   const expItems = items.filter(f => !FIXED_NON_EXPENSE.includes(f.cat));
