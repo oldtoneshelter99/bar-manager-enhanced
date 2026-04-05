@@ -2839,7 +2839,8 @@ function seedData() {
     {"vendor": "滷味食材", "cat": "food",   "amount": 8138,  "note": "滷味食材進貨", "date": "2026-03-01"},
     {"vendor": "滷味食材", "cat": "food",   "amount": 6746,  "note": "滷味食材進貨", "date": "2026-03-01"},
     {"vendor": "酈展",   "cat": "alcohol", "amount": 38495, "note": "酒商貨款",    "date": "2026-03-31"},
-    {"vendor": "振興",   "cat": "alcohol", "amount": 46070, "note": "酒商貨款",    "date": "2026-03-31"}
+    {"vendor": "振興",   "cat": "alcohol", "amount": 46070, "note": "酒商貨款",    "date": "2026-03-31"},
+    {"vendor": "尚德",   "cat": "alcohol", "amount": 35405, "note": "酒商貨款",    "date": "2026-03-31"}
 ];
 
   allData['2026-03'] = {
@@ -2860,7 +2861,9 @@ function seedData() {
         {"cat": "cleaning",   "amount": 3500,   "note": "垃圾清潔費",           "date": "2026-03-31"},
         {"cat": "accounting", "amount": 37971,  "note": "會計及401稅款費用",     "date": "2026-03-31"},
         {"cat": "cardFee",    "amount": 19115,  "note": "信用卡手續費",          "date": "2026-03-31"},
-        {"cat": "equipment",  "amount": 5900,   "note": "冷氣清洗費用（Debby代墊）", "date": "2026-03-01"}
+        {"cat": "equipment",  "amount": 5900,   "note": "冷氣清洗費用（Debby代墊）", "date": "2026-03-01"},
+        {"cat": "utilities",  "amount": 1531,   "note": "中華電信",                "date": "2026-03-31"},
+        {"cat": "cardFee",    "amount": 517,    "note": "line pay",               "date": "2026-03-31"}
     ],
     advances:       [
     {
@@ -3005,7 +3008,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '75', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '76', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3017,7 +3020,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '75';
+  const DATA_VERSION = '76';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
