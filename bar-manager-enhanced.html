@@ -935,7 +935,7 @@ input[type=number] { font-family: 'Space Mono', monospace; }
             <input type="checkbox" id="ef-closed" style="width:auto;"> 休息日
           </label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:9px 0;color:var(--gold);" title="勾選後採週五六門檻 NT$42,000 計算獎金">
-            <input type="checkbox" id="ef-holiday" style="width:auto;" onchange="updateBonusPreview()"> 🎌 假日
+            <input type="checkbox" id="ef-holiday" style="width:auto;" onchange="calcEntryBonus()"> 🎌 假日
           </label>
         </div>
       </div>
@@ -3011,7 +3011,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '83', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '84', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3023,7 +3023,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '83';
+  const DATA_VERSION = '84';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
