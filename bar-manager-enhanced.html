@@ -934,6 +934,9 @@ input[type=number] { font-family: 'Space Mono', monospace; }
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:9px 0;">
             <input type="checkbox" id="ef-closed" style="width:auto;"> 休息日
           </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;padding:9px 0;color:var(--gold);" title="勾選後採週五六門檻 NT$42,000 計算獎金">
+            <input type="checkbox" id="ef-holiday" style="width:auto;" onchange="updateBonusPreview()"> 🎌 假日
+          </label>
         </div>
       </div>
 
@@ -3008,7 +3011,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '78', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '83', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3020,7 +3023,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '78';
+  const DATA_VERSION = '83';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -4034,7 +4037,16 @@ function generateReport() {
     { label:'廣告費',   val:-totAds,       color:'#9B72CF' },
     { label:'廠商貨款', val:-vndWithAdv,   color:'#E8C07A' },
     ...fixedWfItems,
-  ].filter(x => x.val !== 0);
+  ].filter(x => x.val !== 0)
+    .sort((a,b) => {
+      if (a.isTotal) return -1;  // 總營收 always first
+      if (b.isTotal) return 1;
+      const lastA = a.label === '淨利'; 
+      const lastB = b.label === '淨利';
+      if (lastA) return 1;   // 淨利 always last
+      if (lastB) return -1;
+      return a.val - b.val;  // most negative (biggest expense) first
+    });
 
   const wf = document.getElementById('reportWaterfall');
   wf.innerHTML = items.map(item => {
@@ -5310,7 +5322,7 @@ function calcEntryBonus() {
     return;
   }
   const dow = DOW_JS[new Date(dateV + 'T12:00:00').getDay()];
-  const pool = calc_pool_daily(rev, dow);
+  const pool = calc_pool_daily(rev, dow, document.getElementById('ef-holiday')?.checked||false);
   const totalH = _efShifts.reduce((s,sh) => s+sh.hours, 0);
 
   if (pool > 0 && totalH > 0) {
@@ -5335,8 +5347,8 @@ function calcEntryBonus() {
       : `<span style="color:var(--muted)">未達門檻（NT$${fmtRaw(thr)}），本日無獎金</span>`;
 }
 
-function get_threshold_daily(dow) {
-  if (dow === 'Fri' || dow === 'Sat') return bonusConfig.thresholds.fri || 42000;
+function get_threshold_daily(dow, isHoliday) {
+  if (dow === 'Fri' || dow === 'Sat' || isHoliday) return bonusConfig.thresholds.fri || 42000;
   if (dow === 'Thu') return bonusConfig.thresholds.thu || 24000;
   return bonusConfig.thresholds.other || 22000;
 }
