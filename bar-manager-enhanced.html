@@ -3011,7 +3011,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '84', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '85', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3023,7 +3023,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '84';
+  const DATA_VERSION = '85';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -5339,7 +5339,8 @@ function calcEntryBonus() {
   }
 
   renderEntryShiftList();
-  const thr  = get_threshold_daily(dow);
+  const isHolDisplay = document.getElementById('ef-holiday')?.checked || false;
+  const thr  = get_threshold_daily(dow, isHolDisplay);
   const excess = Math.max(0, rev - thr);
   document.getElementById('ef-bonus-preview').innerHTML =
     pool > 0
