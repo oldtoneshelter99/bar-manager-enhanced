@@ -3057,7 +3057,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '113', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '115', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3069,7 +3069,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '113';
+  const DATA_VERSION = '115';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -3963,7 +3963,8 @@ function generateReport() {
     totSinger   += s.totalSinger;
     totAdv      += s.advancesTotal;
     totVnd      += s.vendorTotal;
-    totNet      += s.netProfit;
+    const _hist = (getMonthData(m).entries||[]).find(function(e){return e._isHistorical;});
+    totNet += (_hist && _hist._netProfit) ? _hist._netProfit : s.netProfit;
     const md = getMonthData(m);
     allEntries = allEntries.concat((md.entries||[]).filter(e=>!e.closed));
   });
@@ -4170,7 +4171,7 @@ function generateReport() {
     const md = getMonthData(m);
     const mStats = calcMonthStats(m);
     const ptMap = calcPtMonthly(m);
-    const active = m(d.entries||[]).filter(e=>!e.closed);
+    const active = (md.entries||[]).filter(e=>!e.closed);
     buildAllStaff(md).forEach(emp => {
       const isFT = emp.type === 'FT';
       const ptData = ptMap[emp.name] || { hours:0, bonus:0 };
@@ -5726,6 +5727,14 @@ function calcRevTotal() {
   calcEntryBonus();
 }
 
+function sanitizeCSV(val) {
+  var s = String(val == null ? '' : val);
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+  if (s.indexOf(',') > -1 || s.indexOf('"') > -1 || s.indexOf('\n') > -1)
+    s = '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
 function exportJSON() {
   var payload = { version: DATA_VERSION, exportedAt: new Date().toISOString(), data: allData };
   var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -5744,7 +5753,7 @@ function exportCSV() {
     var adv  = (getMonthData(m).advances||[]).filter(function(a){return !a._noExpense;}).reduce(function(ss,a){return ss+a.amount;},0);
     rows.push([m, s.totalRevenue, s.totalSinger, s.totalMiscOnly+adv, s.totalLaborWithIns||s.totalLabor, s.vendorTotal, s.adsTotal||0, s.fixedTotal, net, rate]);
   });
-  var csv = rows.map(function(r){return r.join(',');}).join('\n');
+  var csv = rows.map(function(r){return r.map(sanitizeCSV).join(',');}).join('\n');
   var blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8' });
   var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   a.download = 'DrunkShelter_' + new Date().toISOString().slice(0,10) + '.csv';
@@ -5910,7 +5919,7 @@ function exportTaxCSV(){
     var name=cells[1]||'';var reportAmt=cells[5]||'0';var insDeduct=cells[4]||'0';
     var info=staffInfoData[name]||{};
     var dobROC='';if(info.dob){var p=info.dob.split('-');dobROC=(parseInt(p[0])-1911).toString().padStart(3,'0')+p[1]+p[2];}
-    csv+=[yearROC,seq++,name,info.idNo||'',dobROC,info.addr||'',(info.type!=='other'?'居住者':'非居住者'),'50',reportAmt,'',insDeduct,'','','','',''].join(',')+'\\n';
+    csv+=[yearROC,seq++,name,info.idNo||'',dobROC,info.addr||'',(info.type!=='other'?'居住者':'非居住者'),'50',reportAmt,'',insDeduct,'','','','',''].map(sanitizeCSV).join(',')+'\\n';
   });
   var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
   var a=document.createElement('a');a.href=URL.createObjectURL(blob);
