@@ -6,6 +6,209 @@
 <title>BAR MANAGER — Drunk Shelter Hankou</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700;900&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Noto+Sans+TC:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js">
+
+// ─── NEW FUNCTIONS ──────────────────────────────────────────
+
+function calcRevTotal() {
+  var c=+(document.getElementById('ef-cash')||{value:0}).value||0;
+  var k=+(document.getElementById('ef-card')||{value:0}).value||0;
+  var l=+(document.getElementById('ef-linepay')||{value:0}).value||0;
+  var t=c+k+l;
+  document.getElementById('ef-rev').value=t; // always update, even if 0
+  calcEntryBonus();
+}
+
+function exportJSON() {
+  var payload = { version: DATA_VERSION, exportedAt: new Date().toISOString(), data: allData };
+  var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'DrunkShelter_backup_' + new Date().toISOString().slice(0,10) + '.json';
+  a.click(); toast('✓ JSON 備份已下載');
+}
+
+function exportCSV() {
+  var rows = [['月份','總營收','歌手費','日結雜支','人事費用','廠商貨款','廣告費','固定支出','月淨利','利潤率%']];
+  Object.keys(allData).filter(function(k){return /^\d{4}-\d{2}$/.test(k);}).sort().forEach(function(m) {
+    var s = calcMonthStats(m);
+    var hist = getMonthData(m).entries.find(function(e){return e._isHistorical;});
+    var net  = hist && hist._netProfit ? hist._netProfit : s.netProfit;
+    var rate = s.totalRevenue > 0 ? (net/s.totalRevenue*100).toFixed(1) : 0;
+    var adv  = (getMonthData(m).advances||[]).filter(function(a){return !a._noExpense;}).reduce(function(ss,a){return ss+a.amount;},0);
+    rows.push([m, s.totalRevenue, s.totalSinger, s.totalMiscOnly+adv, s.totalLaborWithIns||s.totalLabor, s.vendorTotal, s.adsTotal||0, s.fixedTotal, net, rate]);
+  });
+  var csv = rows.map(function(r){return r.join(',');}).join('\n');
+  var blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8' });
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'DrunkShelter_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click(); toast('✓ CSV 已下載');
+}
+
+function printPayslip(name, type) {
+  var d = getMonthData(currentMonth);
+  var ptMap = calcPtMonthly(currentMonth);
+  var active = (d.entries||[]).filter(function(e){return !e.closed;});
+  var isFT = type === 'FT';
+  var ft = (d.ftStaff||[]).find(function(f){return f.name===name;});
+  var pt = (d.ptStaff||[]).find(function(p){return p.name===name;});
+  var ptData = ptMap[name] || { hours:0, bonus:0 };
+  var base, hourly, hours, bonus, qBonus, labIns, hlthIns, total, net;
+  if (isFT) {
+    base=ft?ft.salary||0:0; hourly=0;
+    hours=active.reduce(function(s,e){ var sh=(e.ptShifts||[]).find(function(p){return p.name===name;}); return s+(sh?sh.hours||0:0); },0);
+    bonus=active.reduce(function(s,e){ var sh=(e.ptShifts||[]).find(function(p){return p.name===name;}); return s+(sh?sh.bonus||0:0); },0);
+    qBonus=ft?ft.quarterBonus||0:0; labIns=ft?ft.laborIns||0:0; hlthIns=ft?ft.healthIns||0:0;
+    total=base+bonus+qBonus; net=total-labIns-hlthIns;
+  } else {
+    base=pt?pt.salary||0:0; hourly=pt?pt.hourly||0:0; hours=ptData.hours; bonus=ptData.bonus;
+    qBonus=0; labIns=pt?pt.laborIns||0:0; hlthIns=pt?pt.healthIns||0:0;
+    total=hourly*hours+bonus+base; net=total-labIns-hlthIns;
+  }
+  var parts = currentMonth.split('-');
+  var yr=parts[0], mo=parts[1];
+  var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>薪資單 '+name+'</title>'
+    +'<style>body{font-family:"Noto Sans TC",sans-serif;max-width:460px;margin:40px auto;padding:24px;}'
+    +'.hdr{text-align:center;border-bottom:2px solid #C8903A;padding-bottom:14px;margin-bottom:18px;}'
+    +'.hdr h1{font-size:17px;margin:0;color:#C8903A;}.hdr p{font-size:11px;color:#666;margin:4px 0 0;}'
+    +'.nm{font-size:22px;font-weight:700;text-align:center;margin:14px 0 3px;}'
+    +'.mo{font-size:12px;color:#888;text-align:center;margin-bottom:18px;}'
+    +'table{width:100%;border-collapse:collapse;}td{padding:8px 0;border-bottom:1px solid #eee;font-size:13px;}'
+    +'td:last-child{text-align:right;font-family:monospace;}'
+    +'.sec{font-size:10px;color:#888;text-transform:uppercase;padding:12px 0 5px;font-weight:700;}'
+    +'.tot td{font-weight:700;font-size:15px;border-top:2px solid #C8903A;border-bottom:none;padding-top:10px;color:#C8903A;}'
+    +'.red{color:#e05555;}.ftr{margin-top:22px;font-size:10px;color:#999;text-align:center;}'
+    +'@media print{body{margin:0;padding:14px;}}</style></head><body>'
+    +'<div class="hdr"><h1>DRUNK SHELTER HANKOU</h1><p>台北市萬華區漢口街二段71號1樓</p></div>'
+    +'<div class="nm">'+name+'</div>'
+    +'<div class="mo">'+yr+' 年 '+mo+' 月　薪資明細</div>'
+    +'<table><tr><td class="sec" colspan="2">應發項目</td></tr>'
+    +(isFT ? '<tr><td>本月底薪</td><td>NT$'+fmtRaw(base)+'</td></tr>' : '')
+    +(!isFT && hourly > 0 ? '<tr><td>工時薪資（'+hours+'h × NT$'+hourly+'）</td><td>NT$'+fmtRaw(hourly*hours)+'</td></tr>' : '')
+    +(!isFT && base > 0 ? '<tr><td>固定底薪</td><td>NT$'+fmtRaw(base)+'</td></tr>' : '')
+    +(bonus > 0 ? '<tr><td>出勤獎金</td><td>NT$'+fmtRaw(bonus)+'</td></tr>' : '')
+    +(qBonus > 0 ? '<tr><td>季獎金</td><td>NT$'+fmtRaw(qBonus)+'</td></tr>' : '')
+    +'<tr><td>應發合計</td><td><strong>NT$'+fmtRaw(total)+'</strong></td></tr>'
+    +(labIns > 0 || hlthIns > 0 ? '<tr><td class="sec" colspan="2">應扣項目</td></tr>'
+      +(labIns > 0 ? '<tr><td class="red">勞保費（自付）</td><td class="red">－NT$'+fmtRaw(labIns)+'</td></tr>' : '')
+      +(hlthIns > 0 ? '<tr><td class="red">健保費（自付）</td><td class="red">－NT$'+fmtRaw(hlthIns)+'</td></tr>' : '') : '')
+    +'<tr class="tot"><td>💰 實發金額</td><td>NT$'+fmtRaw(net)+'</td></tr>'
+    +'</table>'
+    +'<div class="ftr">BAR MANAGER 系統自動產生　'+new Date().toLocaleDateString('zh-TW')+'</div>'
+    +'</body></html>';
+  var w = window.open('','_blank','width=540,height=680');
+  w.document.write(html); w.document.close();
+  setTimeout(function(){w.print();},300);
+}
+
+function getStaffInfoData() {
+  try { return JSON.parse(localStorage.getItem('dsBarManager_staffInfo')||'{}'); } catch(e) { return {}; }
+}
+function saveStaffInfoData(data) { localStorage.setItem('dsBarManager_staffInfo', JSON.stringify(data)); }
+function populateStaffInfoSelect() {
+  var sel = document.getElementById('si-name'); if (!sel) return;
+  var d = getMonthData(currentMonth);
+  var names = (d.ftStaff||[]).map(function(f){return f.name;}).concat((d.ptStaff||[]).map(function(p){return p.name;})).filter(function(v,i,a){return a.indexOf(v)===i;});
+  sel.innerHTML = names.map(function(n){return '<option value="'+n+'">'+n+'</option>';}).join('');
+  loadStaffInfo();
+}
+function loadStaffInfo() {
+  var name = (document.getElementById('si-name')||{value:''}).value; if (!name) return;
+  var info = getStaffInfoData()[name]||{};
+  (document.getElementById('si-id')||{}).value = info.idNo||'';
+  (document.getElementById('si-dob')||{}).value = info.dob||'';
+  (document.getElementById('si-addr')||{}).value = info.addr||'';
+  var st = document.getElementById('si-type'); if(st) st.value = info.type||'citizen';
+}
+function saveStaffInfo() {
+  var name = (document.getElementById('si-name')||{value:''}).value; if (!name) return;
+  var data = getStaffInfoData();
+  data[name] = { idNo:(document.getElementById('si-id')||{value:''}).value.trim().toUpperCase(), dob:(document.getElementById('si-dob')||{value:''}).value, addr:(document.getElementById('si-addr')||{value:''}).value.trim(), type:(document.getElementById('si-type')||{value:'citizen'}).value };
+  saveStaffInfoData(data); renderStaffInfoList(); toast('✓ '+name+' 基本資料已儲存');
+}
+function renderStaffInfoList() {
+  var el = document.getElementById('staffInfoList'); if (!el) return;
+  var data = getStaffInfoData();
+  var d = getMonthData(currentMonth);
+  var names = (d.ftStaff||[]).map(function(f){return f.name;}).concat((d.ptStaff||[]).map(function(p){return p.name;})).filter(function(v,i,a){return a.indexOf(v)===i;});
+  el.innerHTML = names.map(function(n) {
+    var info=data[n]||{}; var ok=info.idNo&&info.addr;
+    return '<div style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;"><span style="min-width:60px;font-weight:700;">'+n+'</span><span style="color:'+(ok?'var(--green)':'var(--red)')+';">'+(ok?'✓ 完整':'⚠ 未填')+'</span><span style="color:var(--muted);font-size:11px;">'+(info.idNo||'—')+'</span></div>';
+  }).join('');
+}
+function renderStaffManageList() {
+  var el = document.getElementById('staffManageList'); if (!el) return;
+  var d = getMonthData(currentMonth);
+  var html = '';
+  (d.ftStaff||[]).forEach(function(ft,i) {
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;font-size:12px;"><span class="chip chip-gold" style="font-size:10px;">FT</span><span style="min-width:60px;font-weight:700;">'+ft.name+'</span><span style="color:var(--muted);">月薪 <input type="number" value="'+(ft.salary||0)+'" style="width:80px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 6px;" onchange="updateFTStaffSalary('+i+',this.value)"></span><button onclick="removeStaff(\'FT\','+i+')" style="background:rgba(255,60,110,.15);border:1px solid rgba(255,60,110,.4);color:#FF3C6E;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;">移除</button></div>';
+  });
+  (d.ptStaff||[]).forEach(function(pt,i) {
+    html += '<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;font-size:12px;"><span class="chip chip-blue" style="font-size:10px;">PT</span><span style="min-width:60px;font-weight:700;">'+pt.name+'</span><span style="color:var(--muted);">時薪 <input type="number" value="'+(pt.hourly||0)+'" style="width:70px;background:var(--card);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:2px 6px;" onchange="updatePTStaffHourly('+i+',this.value)"></span><button onclick="removeStaff(\'PT\','+i+')" style="background:rgba(255,60,110,.15);border:1px solid rgba(255,60,110,.4);color:#FF3C6E;padding:3px 8px;border-radius:4px;cursor:pointer;font-size:11px;">移除</button></div>';
+  });
+  el.innerHTML = html || '<div style="color:var(--muted);font-size:13px;">尚無員工</div>';
+}
+function updateFTStaffSalary(i,val){var d=getMonthData(currentMonth);if((d.ftStaff||[])[i]){d.ftStaff[i].salary=+val;saveAll();renderSalary();toast('✓ 已更新');}}
+function updatePTStaffHourly(i,val){var d=getMonthData(currentMonth);if((d.ptStaff||[])[i]){d.ptStaff[i].hourly=+val;saveAll();renderSalary();toast('✓ 已更新');}}
+function addNewStaff(){
+  var name=(document.getElementById('new-staff-name')||{value:''}).value.trim();
+  var type=(document.getElementById('new-staff-type')||{value:'PT'}).value;
+  if(!name){toast('請輸入姓名');return;}
+  var d=getMonthData(currentMonth);
+  if(type==='FT'){var sal=+(document.getElementById('new-staff-salary')||{value:0}).value||0;if(!(d.ftStaff||[]).find(function(f){return f.name===name;})){(d.ftStaff=d.ftStaff||[]).push({name:name,salary:sal,bonus:0,quarterBonus:0,laborIns:0,healthIns:0});}}
+  else{var hrly=+(document.getElementById('new-staff-hourly')||{value:200}).value||200;if(!(d.ptStaff||[]).find(function(p){return p.name===name;})){(d.ptStaff=d.ptStaff||[]).push({name:name,hourly:hrly,hours:0,bonus:0,salary:0});}}
+  saveAll();document.getElementById('new-staff-name').value='';renderSalary();toast('✓ '+name+' 已新增');
+}
+function removeStaff(type,i){
+  var d=getMonthData(currentMonth);
+  var name=type==='FT'?(d.ftStaff||[])[i]&&(d.ftStaff||[])[i].name:(d.ptStaff||[])[i]&&(d.ptStaff||[])[i].name;
+  if(!confirm(name+' 確定移除？'))return;
+  if(type==='FT')(d.ftStaff||[]).splice(i,1);else(d.ptStaff||[]).splice(i,1);
+  saveAll();renderSalary();toast('✓ '+name+' 已移除');
+}
+function toggleNewStaffFields(){
+  var isFT=(document.getElementById('new-staff-type')||{value:'PT'}).value==='FT';
+  var h=document.getElementById('new-hourly-group');var s=document.getElementById('new-salary-group');
+  if(h)h.style.display=isFT?'none':'';if(s)s.style.display=isFT?'':'none';
+}
+function toggleSection(id){
+  var el=document.getElementById(id);if(!el)return;
+  el.style.display=el.style.display==='none'?'block':'none';
+}
+function renderPaymentMethodStats(){
+  var el=document.getElementById('paymentMethodStats');if(!el)return;
+  var d=getMonthData(currentMonth);
+  var active=(d.entries||[]).filter(function(e){return !e.closed;});
+  var tc=active.reduce(function(s,e){return s+(e.cash||0);},0);
+  var tk=active.reduce(function(s,e){return s+(e.card||0);},0);
+  var tl=active.reduce(function(s,e){return s+(e.linepay||0);},0);
+  var tr2=active.reduce(function(s,e){return s+(e.revenue||0);},0);
+  if(!tr2){el.innerHTML='<div style="color:var(--muted);font-size:13px;">本月尚無記錄</div>';return;}
+  var items=[{label:'現金',val:tc,color:'var(--gold)',icon:'💵'},{label:'刷卡',val:tk,color:'var(--blue)',icon:'💳'},{label:'LinePay',val:tl,color:'var(--green)',icon:'📱'}];
+  var hasDetail=tc+tk+tl>0;
+  el.innerHTML=items.map(function(item){
+    var pct=tr2>0?(item.val/tr2*100).toFixed(1):0;
+    return '<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:12px 16px;min-width:110px;text-align:center;"><div style="font-size:18px;margin-bottom:3px;">'+item.icon+'</div><div style="font-size:11px;color:var(--muted);margin-bottom:4px;">'+item.label+'</div><div style="font-family:\'Space Mono\',monospace;font-size:16px;font-weight:700;color:'+item.color+'">'+fmtRaw(item.val||0)+'</div><div style="font-size:11px;color:var(--muted);margin-top:2px;">'+pct+'%</div></div>';
+  }).join('')+(!hasDetail&&tr2>0?'<div style="background:var(--card);border:1px solid rgba(255,60,110,.3);border-radius:8px;padding:12px 16px;min-width:110px;text-align:center;"><div style="font-size:18px;">⚠️</div><div style="font-size:11px;color:var(--muted);">未分類</div><div style="font-family:\'Space Mono\',monospace;font-size:16px;font-weight:700;color:var(--red)">'+fmtRaw(tr2)+'</div></div>':'');
+}
+function exportTaxCSV(){
+  var year=parseInt((document.getElementById('taxYear')||{value:new Date().getFullYear()}).value)||new Date().getFullYear();
+  var yearROC=year-1911;
+  var staffInfoData=getStaffInfoData();
+  var rows=document.querySelectorAll('#taxTableBody tr');
+  var csv='\uFEFF所得年度,序號,所得人姓名,身分證統一編號,出生年月日,戶籍地址,居住者/非居住者,所得類別,給付總額,按規定比例扣除額,其他扣除額,免稅額,應課稅額,扣繳稅額,補充保費,備注\n';
+  var seq=1;
+  rows.forEach(function(row){
+    var cells=Array.from(row.querySelectorAll('td')).map(function(td){return td.textContent.trim().replace(/,/g,'');});
+    if(cells.length<3)return;
+    var name=cells[1]||'';var reportAmt=cells[5]||'0';var insDeduct=cells[4]||'0';
+    var info=staffInfoData[name]||{};
+    var dobROC='';if(info.dob){var p=info.dob.split('-');dobROC=(parseInt(p[0])-1911).toString().padStart(3,'0')+p[1]+p[2];}
+    csv+=[yearROC,seq++,name,info.idNo||'',dobROC,info.addr||'',(info.type!=='other'?'居住者':'非居住者'),'50',reportAmt,'',insDeduct,'','','','',''].join(',')+'\\n';
+  });
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='DS_格式50_'+yearROC+'年.csv';a.click();toast('✓ 格式50 CSV 已下載');
+}
+
 </script>
 <style>
 :root {
@@ -871,7 +1074,12 @@ input[type=number] { font-family: 'Space Mono', monospace; }
   </nav>
   <div class="sidebar-footer">
     <button onclick="forceReseed()" style="width:100%;background:rgba(255,60,110,0.15);border:1px solid rgba(255,60,110,0.4);color:#FF3C6E;padding:8px;border-radius:6px;cursor:pointer;font-size:11px;letter-spacing:0.05em;margin-bottom:12px;">&#x1F504; 強制重新載入資料</button>
-    <div class="venue">
+
+          <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px;">
+            <div style="font-size:11px;color:var(--muted);letter-spacing:0.1em;margin-bottom:8px;">📦 資料備份</div>
+            <button class="btn btn-outline" onclick="exportJSON()" style="width:100%;margin-bottom:6px;">⬇ 完整備份（JSON）</button>
+            <button class="btn btn-outline" onclick="exportCSV()" style="width:100%;">⬇ 月報明細（CSV）</button>
+          </div>    <div class="venue">
       漢口街二段71號1樓<br>
       @drunk_shelter_hankou<br>
       02-2331-0178
@@ -913,10 +1121,10 @@ input[type=number] { font-family: 'Space Mono', monospace; }
           <label>星期</label>
           <input id="ef-day" readonly style="background:var(--card);cursor:default;" placeholder="自動帶入">
         </div>
-        <div class="form-group">
-          <label>當日總營收 (NT$)</label>
-          <input id="ef-rev" type="number" placeholder="0" oninput="calcEntryBonus()">
-        </div>
+        <div class="form-group" style="max-width:110px;"><label>現金</label><input id="ef-cash" type="number" placeholder="0" oninput="calcRevTotal()"></div>
+        <div class="form-group" style="max-width:110px;"><label>刷卡</label><input id="ef-card" type="number" placeholder="0" oninput="calcRevTotal()"></div>
+        <div class="form-group" style="max-width:110px;"><label>LinePay</label><input id="ef-linepay" type="number" placeholder="0" oninput="calcRevTotal()"></div>
+        <div class="form-group" style="max-width:120px;"><label>總營收（自動）</label><input id="ef-rev" type="number" placeholder="0" style="background:rgba(200,144,58,0.08);color:var(--gold);font-weight:700;" oninput="calcEntryBonus()" readonly></div>
         <div class="form-group" style="max-width:110px;">
           <label>來客數（人）</label>
           <input id="ef-customers" type="number" placeholder="0" min="0">
@@ -1088,6 +1296,41 @@ input[type=number] { font-family: 'Space Mono', monospace; }
   <!-- 月薪資總覽 -->
   <div id="salaryKpis" class="kpi-grid"></div>
 
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header" onclick="toggleSection('staffManagePanel')" style="cursor:pointer;user-select:none;">
+      <div class="panel-title">⚙️ 員工管理（新增 / 修改 / 移除）</div>
+      <span style="color:var(--muted);font-size:12px;">▼ 展開</span>
+    </div>
+    <div id="staffManagePanel" style="display:none;"><div class="panel-body">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;">
+        <div class="form-group"><label>姓名</label><input id="new-staff-name" type="text" placeholder="姓名"></div>
+        <div class="form-group"><label>類型</label><select id="new-staff-type" onchange="toggleNewStaffFields()"><option value="PT">PT</option><option value="FT">FT</option></select></div>
+        <div class="form-group" id="new-hourly-group"><label>時薪</label><input id="new-staff-hourly" type="number" placeholder="200"></div>
+        <div class="form-group" id="new-salary-group" style="display:none"><label>月薪</label><input id="new-staff-salary" type="number" placeholder="35000"></div>
+        <button class="btn btn-gold" onclick="addNewStaff()">新增</button>
+      </div>
+      <div id="staffManageList"></div>
+    </div></div>
+  </div>
+  <div class="panel" style="margin-bottom:20px;">
+    <div class="panel-header" onclick="toggleSection('staffInfoPanel')" style="cursor:pointer;user-select:none;">
+      <div class="panel-title">👤 員工基本資料（格式50申報用）</div>
+      <span style="color:var(--muted);font-size:12px;">▼ 展開</span>
+    </div>
+    <div id="staffInfoPanel" style="display:none;"><div class="panel-body">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;">
+        <div class="form-group"><label>員工</label><select id="si-name" onchange="loadStaffInfo()"></select></div>
+        <div class="form-group"><label>身分證字號</label><input id="si-id" type="text" placeholder="A123456789"></div>
+        <div class="form-group"><label>出生年月日</label><input id="si-dob" type="date"></div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="form-group" style="flex:1;min-width:200px;"><label>戶籍地址</label><input id="si-addr" type="text" placeholder="台北市..."></div>
+        <div class="form-group"><label>居留類型</label><select id="si-type"><option value="citizen">本國人</option><option value="resident">居留證</option><option value="other">其他</option></select></div>
+        <button class="btn btn-gold" onclick="saveStaffInfo()">儲存</button>
+      </div>
+      <div id="staffInfoList" style="margin-top:12px;"></div>
+    </div></div>
+  </div>
   <!-- 員工卡片 -->
   <div class="panel">
     <div class="panel-header">
@@ -1294,7 +1537,8 @@ input[type=number] { font-family: 'Space Mono', monospace; }
 
   <div class="two-col">
 
-    <!-- 代墊款 -->
+    <div class="panel" style="margin-bottom:20px;"><div class="panel-header"><div class="panel-title">💳 本月收款方式統計</div></div><div class="panel-body"><div id="paymentMethodStats" style="display:flex;gap:14px;flex-wrap:wrap;"></div></div></div>
+  <!-- 代墊款 -->
     <div class="panel">
       <div class="panel-header">
         <div class="panel-title">💳 代墊款追蹤（月底匯款用）</div>
@@ -1920,10 +2164,16 @@ function seedMissingMonths() {
     // Month exists with user data - just ensure staff config is current
     const d = allData['2026-03'];
     // Update ptStaff hourly rates if user hasn't customized
-    if (d.ptStaff && d.ptStaff.length > 0) {
+    if (d.ptStaff && (d.ptStaff||[]).length > 0) {
       // Don't overwrite - user may have updated these
     }
   }
+}
+
+function seedMissingMonths() {
+  const _h = document.getElementById('historicalDataJSON');
+  if (_h) { try { const hd=JSON.parse(_h.textContent); Object.entries(hd).forEach(([k,v])=>{ if(!allData[k]) allData[k]=v; }); } catch(e){} }
+  if (!allData['2026-03']||(allData['2026-03'].entries||[]).length===0) seedData();
 }
 
 function seedData() {
@@ -3011,7 +3261,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '85', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '111', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3023,7 +3273,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '85';
+  const DATA_VERSION = '111';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -3044,9 +3294,16 @@ function loadAll() {
   }
   const ftRaw = localStorage.getItem(STORAGE_KEY + '_ftBonus');
   if (ftRaw) ftBonusHistory = JSON.parse(ftRaw);
+  Object.keys(allData).filter(k=>/^\d{4}-\d{2}$/.test(k)).forEach(k=>{
+    const d=allData[k];
+    if(!d.advances)d.advances=[];if(!d.fixedItems)d.fixedItems=[];
+    if(!d.entries)d.entries=[];if(!d.vendorPayments)d.vendorPayments=[];
+    if(!d.bonusLog)d.bonusLog=[];if(!d.ptStaff)d.ptStaff=[];if(!d.ftStaff)d.ftStaff=[];
+  });
   if (Object.keys(allData).length === 0) seedData();
   if (ftBonusHistory.length === 0) seedFTHistory();
   if (typeof setSyncStatus === 'function' && GS_URL) setSyncStatus('🔗 Sheets 已連線', 'var(--muted)');
+  Object.keys(allData).filter(k=>!/^\d{4}-\d{2}$/.test(k)).forEach(k=>{delete allData[k];});
 }
 function seedFTHistory() {
   ftBonusHistory = [
@@ -3067,7 +3324,7 @@ function getMonthData(key) {
 // ─────────────────────────────────────────────────────
 function calcMonthStats(key) {
   const d = getMonthData(key);
-  const active = d.entries.filter(e => !e.closed);
+  const active = (d.entries||[]).filter(e => !e.closed);
   const totalRevenue  = active.reduce((s,e) => s + (e.revenue||0) + (e.extraIncome||0), 0);
   const totalSinger   = active.reduce((s,e) => s + (e.singer||0) + (e.singerTip||0), 0);
   const totalMiscOnly = active.reduce((s,e) => s + (e.misc||0) + (e.drinks||0), 0);
@@ -3085,9 +3342,9 @@ function calcMonthStats(key) {
     const unitemized = (e.misc||0) - itemized;
     if (unitemized > 0) miscCats.other += unitemized;
   });
-  const fixedTotal = d.fixedItems.filter(f => !['prevBalance','cashFloat','insurance','miscMonthly','ads'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
-  const adsTotal    = d.fixedItems.filter(f => f.cat === 'ads').reduce((s,f) => s+f.amount, 0);
-  const advancesTotal = d.advances.reduce((s,a) => a._noExpense ? s : s+a.amount, 0);  // 計入支出（_noExpense 除外）
+  const fixedTotal = (d.fixedItems||[]).filter(f => !['prevBalance','cashFloat','insurance','miscMonthly','ads'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
+  const adsTotal    = (d.fixedItems||[]).filter(f => f.cat === 'ads').reduce((s,f) => s+f.amount, 0);
+  const advancesTotal = (d.advances||[]).reduce((s,a) => a._noExpense ? s : s+a.amount, 0);  // 計入支出（_noExpense 除外）
   const vendorTotal = (d.vendorPayments||[]).reduce((s,v) => s+v.amount, 0);
 
   // PT salary from ptShifts
@@ -3115,7 +3372,7 @@ function calcMonthStats(key) {
 
   // FT salary + bonuses
   let ftSalary = 0;
-  d.ftStaff.forEach(ft => {
+  (d.ftStaff||[]).forEach(ft => {
     const ftBonus = active.reduce((s,e) => {
       const sh = (e.ptShifts||[]).find(p => p.name === ft.name);
       return s + (sh ? sh.bonus||0 : 0);
@@ -3125,9 +3382,9 @@ function calcMonthStats(key) {
 
   const totalLabor = ptSalary + ftSalary;
   // Employer insurance (勞保/勞退/健保 in fixedItems) - combine with labor for report
-  const employerIns = d.fixedItems.filter(f => f.cat === 'insurance').reduce((s,f) => s+f.amount, 0);
+  const employerIns = (d.fixedItems||[]).filter(f => f.cat === 'insurance').reduce((s,f) => s+f.amount, 0);
   const totalLaborWithIns = totalLabor + employerIns;
-  const advTotal = d.advances.reduce((s,a) => a._noExpense ? s : s+a.amount, 0);
+  const advTotal = (d.advances||[]).reduce((s,a) => a._noExpense ? s : s+a.amount, 0);
   // totalExpense = all expenses (consistent with report display)
   // singer included via totalMisc, insurance via totalLaborWithIns
   const totalExpense = totalMiscOnly + totalSinger + totalLaborWithIns + fixedTotal + adsTotal + vendorTotal + advTotal;
@@ -3139,7 +3396,7 @@ function calcMonthStats(key) {
 
 function calcPtMonthly(key) {
   const d = getMonthData(key);
-  const active = d.entries.filter(e => !e.closed);
+  const active = (d.entries||[]).filter(e => !e.closed);
   const map = {};
   active.forEach(e => {
     (e.ptShifts||[]).forEach(s => {
@@ -3164,6 +3421,9 @@ function fmtRaw(n) {
 // MODULE 1: SALARY
 // ─────────────────────────────────────────────────────
 function renderSalary() {
+  if(typeof populateStaffInfoSelect==='function')populateStaffInfoSelect();
+  if(typeof renderStaffInfoList==='function')renderStaffInfoList();
+  if(typeof renderStaffManageList==='function')renderStaffManageList();
   const d = getMonthData(currentMonth);
   const stats = calcMonthStats(currentMonth);
   const ptMap = calcPtMonthly(currentMonth);
@@ -3340,7 +3600,7 @@ function renderSalary() {
   // Bonus log
   const bonusBody = document.getElementById('bonusLogBody');
   bonusBody.innerHTML = '';
-  const active = d.entries.filter(e => !e.closed && (e.ptShifts||[]).some(s => (s.bonus||0) > 0));
+  const active = (d.entries||[]).filter(e => !e.closed && (e.ptShifts||[]).some(s => (s.bonus||0) > 0));
   active.forEach(e => {
     const shifts = (e.ptShifts||[]).filter(s => (s.bonus||0) > 0);
     const pool = shifts.reduce((s,sh) => s+(sh.bonus||0), 0);
@@ -3371,17 +3631,17 @@ function getThreshold(dayName) {
 
 function updatePTHourly(name, val) {
   const d = getMonthData(currentMonth);
-  const emp = d.ptStaff.find(e => e.name === name);
+  const emp = (d.ptStaff||[]).find(e => e.name === name);
   if (emp) { emp.hourly = +val; saveAll(); toast('已更新 ' + name + ' 時薪'); }
 }
 function updatePTSalary(name, val) {
   const d = getMonthData(currentMonth);
-  const emp = d.ptStaff.find(e => e.name === name);
+  const emp = (d.ptStaff||[]).find(e => e.name === name);
   if (emp) { emp.salary = +val; saveAll(); renderSalary(); toast('已更新 ' + name + ' 固定薪資'); }
 }
 function updatePTIns(name, type, val) {
   const d = getMonthData(currentMonth);
-  const emp = d.ptStaff.find(e => e.name === name);
+  const emp = (d.ptStaff||[]).find(e => e.name === name);
   if (!emp) return;
   if (type === 'labor')  emp.laborIns  = +val;
   if (type === 'health') emp.healthIns = +val;
@@ -3391,17 +3651,17 @@ function updatePTIns(name, type, val) {
 }
 function updateFTSalary(name, val) {
   const d = getMonthData(currentMonth);
-  const emp = d.ftStaff.find(e => e.name === name);
+  const emp = (d.ftStaff||[]).find(e => e.name === name);
   if (emp) { emp.salary = +val; saveAll(); toast('已更新 ' + name + ' 月薪'); }
 }
 function updateFTQuarterBonus(name, val) {
   const d = getMonthData(currentMonth);
-  const emp = d.ftStaff.find(e => e.name === name);
+  const emp = (d.ftStaff||[]).find(e => e.name === name);
   if (emp) { emp.quarterBonus = +val; saveAll(); renderSalary(); toast('已更新 ' + name + ' 季獎金'); }
 }
 function updateFTIns(name, type, val) {
   const d = getMonthData(currentMonth);
-  const emp = d.ftStaff.find(e => e.name === name);
+  const emp = (d.ftStaff||[]).find(e => e.name === name);
   if (!emp) return;
   if (type === 'labor')  emp.laborIns  = +val;
   if (type === 'health') emp.healthIns = +val;
@@ -3469,14 +3729,14 @@ function exportSalaryReport() {
 // ─────────────────────────────────────────────────────
 function renderPayments() {
   const d = getMonthData(currentMonth);
-  const advTotal = d.advances.reduce((s,a) => s+a.amount, 0);
+  const advTotal = (d.advances||[]).reduce((s,a) => s+a.amount, 0);
   const vndTotal = (d.vendorPayments||[]).reduce((s,v) => s+v.amount, 0);
 
   document.getElementById('paymentsKpis').innerHTML = `
     <div class="kpi-card" style="--accent:var(--blue)">
       <div class="kpi-label">代墊款合計</div>
       <div class="kpi-value">${fmtRaw(advTotal)}</div>
-      <div class="kpi-sub">${d.advances.length} 筆</div>
+      <div class="kpi-sub">${(d.advances||[]).length} 筆</div>
     </div>
     <div class="kpi-card" style="--accent:var(--gold)">
       <div class="kpi-label">廠商貨款合計</div>
@@ -3495,7 +3755,7 @@ function renderPayments() {
     </div>
   `;
 
-  document.getElementById('advanceCount').textContent = d.advances.length + ' 筆';
+  document.getElementById('advanceCount').textContent = (d.advances||[]).length + ' 筆';
   document.getElementById('vendorCount').textContent = (d.vendorPayments||[]).length + ' 筆';
 
   // Advances table
@@ -3510,7 +3770,7 @@ function renderPayments() {
     'vendor_alcohol':'酒水廠商','vendor_food':'食材廠商','vendor_supplies':'耗材廠商',
     'vendor_equipment':'設備廠商','vendor_other':'其他廠商',
   };
-  d.advances.forEach((a, i) => {
+  (d.advances||[]).forEach((a, i) => {
     const catLabel = a.cat ? (ADV_CAT_LABELS[a.cat] || a.cat) : '—';
     const catColor = a.cat ? (a.cat.startsWith('misc')?'var(--blue)':a.cat.startsWith('fixed')?'var(--gold)':'var(--green)') : 'var(--muted)';
     advBody.innerHTML += `
@@ -3544,6 +3804,8 @@ function renderPayments() {
   renderBankRecords();
 
   // Fixed items
+  if(typeof renderPaymentMethodStats==='function')renderPaymentMethodStats();
+  if(typeof renderBankRecords==='function')renderBankRecords();
   renderFixedItems();
 
   // Misc items
@@ -3601,7 +3863,7 @@ function addAdvance() {
   const d = getMonthData(currentMonth);
 
   // 1. Save advance record
-  d.advances.push({ name, amount, note, date, cat });
+  (d.advances||(d.advances=[])).push({ name, amount, note, date, cat });
 
   saveAll();
   renderPayments();
@@ -3614,7 +3876,7 @@ function delAdvance(i) {
   const d = getMonthData(currentMonth);
   const adv = d.advances[i];
 
-  d.advances.splice(i, 1);
+  (d.advances||[]).splice(i, 1);
   saveAll(); renderPayments();
   toast('代墊款已刪除');
 }
@@ -3628,7 +3890,7 @@ function addVendor() {
   if (!vendor || !amount || !date) { toast('請填寫廠商、金額、日期'); return; }
   const d = getMonthData(currentMonth);
   if (!d.vendorPayments) d.vendorPayments = [];
-  d.vendorPayments.push({ vendor, cat, amount, note, date });
+  (d.vendorPayments||(d.vendorPayments=[])).push({ vendor, cat, amount, note, date });
   saveAll();
   renderPayments();
   ['vnd-vendor','vnd-amount','vnd-note'].forEach(id => document.getElementById(id).value = '');
@@ -3638,7 +3900,7 @@ function addVendor() {
 function delVendor(i) {
   if (!confirm('確定刪除？')) return;
   const d = getMonthData(currentMonth);
-  d.vendorPayments.splice(i, 1);
+  (d.vendorPayments||[]).splice(i, 1);
   saveAll(); renderPayments();
 }
 
@@ -3648,7 +3910,7 @@ function delVendor(i) {
 function renderAnalysis() {
   const d = getMonthData(currentMonth);
   const stats = calcMonthStats(currentMonth);
-  const active = d.entries.filter(e => !e.closed);
+  const active = (d.entries||[]).filter(e => !e.closed);
   document.getElementById('analysisMonthLabel').textContent = currentMonth;
 
   const revenues = active.map(e => e.revenue||0);
@@ -3907,7 +4169,7 @@ function generateReport() {
     totVnd      += s.vendorTotal;
     totNet      += s.netProfit;
     const md = getMonthData(m);
-    allEntries = allEntries.concat(md.entries.filter(e=>!e.closed));
+    allEntries = allEntries.concat((md.entries||[]).filter(e=>!e.closed));
   });
   const profitRate = totRev > 0 ? (totNet/totRev*100) : 0;
 
@@ -4112,7 +4374,7 @@ function generateReport() {
     const md = getMonthData(m);
     const mStats = calcMonthStats(m);
     const ptMap = calcPtMonthly(m);
-    const active = md.entries.filter(e=>!e.closed);
+    const active = m(d.entries||[]).filter(e=>!e.closed);
     buildAllStaff(md).forEach(emp => {
       const isFT = emp.type === 'FT';
       const ptData = ptMap[emp.name] || { hours:0, bonus:0 };
@@ -4160,15 +4422,15 @@ function generateReport() {
     if (colCount) colCount.textContent = `共 ${cols.length} 個月份`;
     const rowDefs = [
       { label:'月營收',       fn: m => calcMonthStats(m).totalRevenue,   fmt: fmtRaw,  gold: true },
-      { label:'營業天數',     fn: m => { const d=getMonthData(m); const hist=d.entries.find(e=>e._isHistorical); return hist ? (hist._bizDays||1) : d.entries.filter(e=>!e.closed).length; }, fmt: v=>v+'天', gold: false },
-      { label:'平均來客數/日',fn: m => { const d=getMonthData(m); if (d._monthCustomers) return d._monthCustomers; const hist=d.entries.find(e=>e._isHistorical); if (hist&&hist._avgDailyCust) return hist._avgDailyCust; const ce=d.entries.filter(e=>!e.closed&&e.customers>0); return ce.length?Math.round(ce.reduce((s,e)=>s+(e.customers||0),0)/ce.length):0; }, fmt: v=>v?v+'人':'—', gold: false },
-      { label:'客單價',       fn: m => { const d=getMonthData(m); if (d._monthTicket) return d._monthTicket; const hist=d.entries.find(e=>e._isHistorical); if (hist&&hist._avgTicket) return hist._avgTicket; const ce=d.entries.filter(e=>!e.closed&&e.customers>0); const tc=ce.reduce((s,e)=>s+(e.customers||0),0); return tc?Math.round(calcMonthStats(m).totalRevenue/tc):0; }, fmt: v=>v?'NT$'+fmtRaw(v):'—', gold: false },
+      { label:'營業天數',     fn: m => { const d=getMonthData(m); const hist=d.entries.find(e=>e._isHistorical); return hist ? (hist._bizDays||1) : (d.entries||[]).filter(e=>!e.closed).length; }, fmt: v=>v+'天', gold: false },
+      { label:'平均來客數/日',fn: m => { const d=getMonthData(m); if (d._monthCustomers) return d._monthCustomers; const hist=d.entries.find(e=>e._isHistorical); if (hist&&hist._avgDailyCust) return hist._avgDailyCust; const ce=(d.entries||[]).filter(e=>!e.closed&&e.customers>0); return ce.length?Math.round(ce.reduce((s,e)=>s+(e.customers||0),0)/ce.length):0; }, fmt: v=>v?v+'人':'—', gold: false },
+      { label:'客單價',       fn: m => { const d=getMonthData(m); if (d._monthTicket) return d._monthTicket; const hist=d.entries.find(e=>e._isHistorical); if (hist&&hist._avgTicket) return hist._avgTicket; const ce=(d.entries||[]).filter(e=>!e.closed&&e.customers>0); const tc=ce.reduce((s,e)=>s+(e.customers||0),0); return tc?Math.round(calcMonthStats(m).totalRevenue/tc):0; }, fmt: v=>v?'NT$'+fmtRaw(v):'—', gold: false },
       { label:'歌手費',       fn: m => getMonthData(m).entries.reduce((s,e)=>s+(e.singer||0),0), fmt: fmtRaw, gold: false },
       { label:'人事費用（含勞健保）', fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); return hist ? (hist._labor||s.totalLabor) : (s.totalLaborWithIns||s.totalLabor); }, fmt: fmtRaw, gold: false },
       { label:'日結雜支（含代墊）', fn: m => { const s=calcMonthStats(m); const adv=getMonthData(m).advances.filter(a=>!a._noExpense).reduce((ss,a)=>ss+a.amount,0); return s.totalMiscOnly + adv; }, fmt: fmtRaw, gold: false },
       { label:'廠商貨款',     fn: m => calcMonthStats(m).vendorTotal,    fmt: fmtRaw,  gold: false },
       { label:'廣告費',       fn: m => getMonthData(m).fixedItems.filter(f=>f.cat==='ads').reduce((s,f)=>s+f.amount,0), fmt: fmtRaw, gold: false },
-      { label:'固定支出',     fn: m => { const d=getMonthData(m); return d.fixedItems.filter(f=>!['prevBalance','cashFloat','insurance','miscMonthly','ads'].includes(f.cat)).reduce((s,f)=>s+f.amount,0); }, fmt: fmtRaw, gold: false },
+      { label:'固定支出',     fn: m => { const d=getMonthData(m); return (d.fixedItems||[]).filter(f=>!['prevBalance','cashFloat','insurance','miscMonthly','ads'].includes(f.cat)).reduce((s,f)=>s+f.amount,0); }, fmt: fmtRaw, gold: false },
       { label:'月淨利',       fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); return hist&&hist._netProfit ? hist._netProfit : s.netProfit; }, fmt: fmtRaw, gold: true },
       { label:'利潤率',       fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); const net = hist&&hist._netProfit ? hist._netProfit : s.netProfit; return s.totalRevenue>0 ? net/s.totalRevenue*100 : 0; }, fmt: v=>v.toFixed(1)+'%', gold: false },
       { label:'累積盈餘',     fn: m => { if (!window._extendedCumul) renderCumulativeChart(); const cd = window._extendedCumul||[]; const found = cd.find(r=>r.month===m); return found ? found.cumulative : 0; }, fmt: v=>v?fmtRaw(v):'—', gold: true },
@@ -4868,7 +5130,7 @@ function renderTax() {
 
   selectedMonths.forEach(monthKey => {
     const d = getMonthData(monthKey);
-    const active = d.entries.filter(e => !e.closed);
+    const active = (d.entries||[]).filter(e => !e.closed);
     const ptMap = {};
     active.forEach(e => {
       (e.ptShifts||[]).forEach(s => {
@@ -4973,8 +5235,8 @@ function addFixedItem() {
   const date   = document.getElementById('fi-date').value;
   if (!amount || !date) { toast('請填寫金額和日期'); return; }
   const d = getMonthData(currentMonth);
-  d.fixedItems.push({ cat, amount, note, date });
-  d.fixedItems.sort((a,b) => a.date.localeCompare(b.date));
+  (d.fixedItems||(d.fixedItems=[])).push({ cat, amount, note, date });
+  (d.fixedItems||[]).sort((a,b) => a.date.localeCompare(b.date));
   saveAll();
   renderFixedItems();
   document.getElementById('fi-amount').value = '';
@@ -4984,7 +5246,7 @@ function addFixedItem() {
 
 function delFixedItem(i) {
   const d = getMonthData(currentMonth);
-  d.fixedItems.splice(i, 1);
+  (d.fixedItems||[]).splice(i, 1);
   saveAll(); renderFixedItems();
 }
 
@@ -5084,7 +5346,7 @@ function renderDaily() {
   const d = getMonthData(currentMonth);
   document.getElementById('dailyMonthLabel').textContent = currentMonth;
 
-  const active = d.entries.filter(e => !e.closed);
+  const active = (d.entries||[]).filter(e => !e.closed);
   const totalRev    = active.reduce((s,e) => s+(e.revenue||0), 0);
   const totalSinger = active.reduce((s,e) => s+(e.singer||0), 0);
   const totalMisc   = active.reduce((s,e) => s+(e.misc||0), 0);
@@ -5262,6 +5524,7 @@ function removeEntryMisc(i) {
 }
 
 function renderEntryMiscList() {
+  if (!Array.isArray(_efMiscItems)) _efMiscItems = [];
   const total = _efMiscItems.reduce((s,m) => s+m.amount, 0);
   const colors = MISC_CAT_COLORS || {};
   document.getElementById('ef-misc-list').innerHTML = _efMiscItems.map((m,i) =>
@@ -5313,6 +5576,13 @@ function renderEntryShiftList() {
   ).join('');
 }
 
+function calcRevTotal() {
+  const c=+document.getElementById('ef-cash')?.value||0;
+  const k=+document.getElementById('ef-card')?.value||0;
+  const l=+document.getElementById('ef-linepay')?.value||0;
+  const t=c+k+l; if(t>0) document.getElementById('ef-rev').value=t;
+  calcEntryBonus();
+}
 function calcEntryBonus() {
   const rev    = +document.getElementById('ef-rev').value || 0;
   const dateV  = document.getElementById('ef-date').value;
@@ -5354,8 +5624,8 @@ function get_threshold_daily(dow, isHoliday) {
   return bonusConfig.thresholds.other || 22000;
 }
 
-function calc_pool_daily(rev, dow) {
-  const excess = rev - get_threshold_daily(dow);
+function calc_pool_daily(rev, dow, isHoliday) {
+  const excess = rev - get_threshold_daily(dow, isHoliday);
   if (excess <= 0) return 0;
   let pool = Math.min(excess, 10000) * ((bonusConfig.tiers[0].pct||6) / 100);
   pool += Math.min(Math.max(excess - 10000, 0), 10000) * ((bonusConfig.tiers[1].pct||10) / 100);
@@ -5370,6 +5640,10 @@ function saveEntry() {
   const singer    = +document.getElementById('ef-singer').value || 0;
   const note      = document.getElementById('ef-note').value.trim();
   const closed    = document.getElementById('ef-closed').checked;
+  const holiday   = document.getElementById('ef-holiday')?.checked||false;
+  const cash      = +document.getElementById('ef-cash')?.value||0;
+  const card      = +document.getElementById('ef-card')?.value||0;
+  const linepay   = +document.getElementById('ef-linepay')?.value||0;
 
   if (!date) { toast('請選擇日期'); return; }
 
@@ -5378,7 +5652,7 @@ function saveEntry() {
 
   const entry = {
     date, dayName: dow, revenue: rev, customers, misc, drinks: 0,
-    singer, singerTip: 0, extraIncome: 0, note, closed,
+    singer, singerTip: 0, extraIncome: 0, note, closed, holiday, cash, card, linepay,
     ptShifts: _efShifts.map(s => ({ name:s.name, hourly:s.hourly, hours:s.hours, bonus:s.bonus })),
     miscItems: [..._efMiscItems],
   };
