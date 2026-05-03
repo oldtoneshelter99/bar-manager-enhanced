@@ -1492,7 +1492,8 @@ input[type=number] { font-family: 'Space Mono', monospace; }
             <option value="cleaning">清潔消毒服務</option>
             <option value="equipment">設備維修＆採購</option>
             <option value="renovation">裝潢維修</option>
-            <option value="insurance">保險費</option>
+            <option value="laborIns">勞保／健保／勞退</option>
+            <option value="insurance">商業保險（火災等）</option>
             <option value="miscMonthly">其他月結支出</option>
           </select>
         </div>
@@ -1921,9 +1922,9 @@ let staffConfig = [];
 let ftBonusHistory = [];
 let charts = {};
 
-const FIXED_CAT_LABELS = {'rent': '房租', 'utilities': '水電費', 'telecom': '網路／電話費', 'ads': '廣告費', 'accounting': '會計／記帳費', 'cardFee': '信用卡／LinePay 手續費', 'hookah': '水煙耗材進貨', 'cleaning': '清潔消毒服務', 'equipment': '設備維修＆採購', 'renovation': '裝潢維修', 'insurance': '保險費', 'miscMonthly': '其他月結支出', 'prevBalance': '前月結餘', 'cashFloat': '店內零用金'};
-const FIXED_CAT_COLORS = {'rent': '#C8903A', 'utilities': '#E8C07A', 'telecom': '#6AABF7', 'ads': '#B48EF0', 'accounting': '#56C97B', 'cardFee': '#FF3C6E', 'hookah': '#88785A', 'cleaning': '#3CF0D8', 'equipment': '#F0A030', 'renovation': '#E05555', 'insurance': '#9B72CF', 'miscMonthly': '#4A4A6A', 'prevBalance': '#0A0A0F', 'cashFloat': '#0A0A0F'};
-const FIXED_CAT_OCCASIONAL = {'rent': false, 'utilities': false, 'telecom': false, 'ads': false, 'accounting': false, 'cardFee': false, 'hookah': false, 'cleaning': false, 'equipment': false, 'renovation': true, 'insurance': true, 'miscMonthly': false, 'prevBalance': false, 'cashFloat': false};
+const FIXED_CAT_LABELS = {'rent': '房租', 'utilities': '水電費', 'telecom': '網路／電話費', 'ads': '廣告費', 'accounting': '會計／記帳費', 'cardFee': '信用卡／LinePay 手續費', 'hookah': '水煙耗材進貨', 'cleaning': '清潔消毒服務', 'equipment': '設備維修＆採購', 'renovation': '裝潢維修', 'insurance': '商業保險（火災等）', 'laborIns': '勞保／健保／勞退', 'miscMonthly': '其他月結支出', 'prevBalance': '前月結餘', 'cashFloat': '店內零用金'};
+const FIXED_CAT_COLORS = {'rent': '#C8903A', 'utilities': '#E8C07A', 'telecom': '#6AABF7', 'ads': '#B48EF0', 'accounting': '#56C97B', 'cardFee': '#FF3C6E', 'hookah': '#88785A', 'cleaning': '#3CF0D8', 'equipment': '#F0A030', 'renovation': '#E05555', 'insurance': '#9B72CF', 'laborIns': '#56C97B', 'miscMonthly': '#4A4A6A', 'prevBalance': '#0A0A0F', 'cashFloat': '#0A0A0F'};
+const FIXED_CAT_OCCASIONAL = {'rent': false, 'utilities': false, 'telecom': false, 'ads': false, 'accounting': false, 'cardFee': false, 'hookah': false, 'cleaning': false, 'equipment': false, 'renovation': true, 'insurance': true, 'laborIns': true, 'miscMonthly': false, 'prevBalance': false, 'cashFloat': false};
 const FIXED_NON_EXPENSE = ['prevBalance','cashFloat'];
 
 const CAT_LABELS = {
@@ -2904,13 +2905,13 @@ function seedData() {
         {"cat": "rent",       "amount": 180000, "note": "3月房租",              "date": "2026-03-15"},
         {"cat": "rent",       "amount": 20480,  "note": "租賃扣繳（10%）",      "date": "2026-03-31"},
         {"cat": "rent",       "amount": 4321,   "note": "房租二代健保補充保費",  "date": "2026-03-31"},
-        {"cat": "insurance",  "amount": 3475,   "note": "勞保費",               "date": "2026-03-31"},
-        {"cat": "insurance",  "amount": 1818,   "note": "勞退",                 "date": "2026-03-31"},
-        {"cat": "insurance",  "amount": 3822,   "note": "健保費",               "date": "2026-03-31"},
+        {"cat": "laborIns",   "amount": 3475,   "note": "勞保費",               "date": "2026-03-31"},
+        {"cat": "laborIns",   "amount": 1818,   "note": "勞退",                 "date": "2026-03-31"},
+        {"cat": "laborIns",   "amount": 3822,   "note": "健保費",               "date": "2026-03-31"},
         {"cat": "cleaning",   "amount": 3500,   "note": "垃圾清潔費",           "date": "2026-03-31"},
         {"cat": "accounting", "amount": 37971,  "note": "會計及401稅款費用",     "date": "2026-03-31"},
         {"cat": "cardFee",    "amount": 19115,  "note": "信用卡手續費",          "date": "2026-03-31"},
-        {"cat": "equipment",  "amount": 5900,   "note": "冷氣清洗費用（Debby代墊）", "date": "2026-03-01"},
+,
         {"cat": "utilities",  "amount": 1531,   "note": "中華電信",                "date": "2026-03-31"},
         {"cat": "cardFee",    "amount": 517,    "note": "line pay",               "date": "2026-03-31"}
     ],
@@ -3057,7 +3058,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '115', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '117', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3069,7 +3070,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '115';
+  const DATA_VERSION = '117';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -3138,7 +3139,7 @@ function calcMonthStats(key) {
     const unitemized = (e.misc||0) - itemized;
     if (unitemized > 0) miscCats.other += unitemized;
   });
-  const fixedTotal = (d.fixedItems||[]).filter(f => !['prevBalance','cashFloat','insurance','miscMonthly','ads'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
+  const fixedTotal = (d.fixedItems||[]).filter(f => !['prevBalance','cashFloat','laborIns','miscMonthly','ads'].includes(f.cat)).reduce((s,f) => s+f.amount, 0);
   const adsTotal    = (d.fixedItems||[]).filter(f => f.cat === 'ads').reduce((s,f) => s+f.amount, 0);
   const advancesTotal = (d.advances||[]).reduce((s,a) => a._noExpense ? s : s+a.amount, 0);  // 計入支出（_noExpense 除外）
   const vendorTotal = (d.vendorPayments||[]).reduce((s,v) => s+v.amount, 0);
@@ -3178,7 +3179,7 @@ function calcMonthStats(key) {
 
   const totalLabor = ptSalary + ftSalary;
   // Employer insurance (勞保/勞退/健保 in fixedItems) - combine with labor for report
-  const employerIns = (d.fixedItems||[]).filter(f => f.cat === 'insurance').reduce((s,f) => s+f.amount, 0);
+  const employerIns = (d.fixedItems||[]).filter(f => f.cat === 'laborIns').reduce((s,f) => s+f.amount, 0);
   const totalLaborWithIns = totalLabor + employerIns;
   const advTotal = (d.advances||[]).reduce((s,a) => a._noExpense ? s : s+a.amount, 0);
   // totalExpense = all expenses (consistent with report display)
@@ -3799,7 +3800,7 @@ function renderAnalysis() {
   expData.push({ label:'日結雜支', val: active.reduce((s,e)=>s+(e.misc||0),0), color:'#6AABF7' });
   expData.push({ label:'人事費用（含勞健保）', val: (stats.totalLaborWithIns||stats.totalLabor), color:'#56C97B' });
   const _fixedCatTmp = {};
-  (d.fixedItems||[]).filter(f => !FIXED_NON_EXPENSE.includes(f.cat) && f.cat !== 'insurance' && f.cat !== 'ads')
+  (d.fixedItems||[]).filter(f => !FIXED_NON_EXPENSE.includes(f.cat) && f.cat !== 'laborIns' && f.cat !== 'ads')
     .forEach(f => { _fixedCatTmp[f.cat] = (_fixedCatTmp[f.cat]||0) + f.amount; });
   Object.entries(_fixedCatTmp).forEach(function(entry) {
     if (entry[1] > 0) expData.push({ label: FIXED_CAT_LABELS[entry[0]]||entry[0], val: entry[1], color: FIXED_CAT_COLORS[entry[0]]||'#88785A' });
@@ -4049,7 +4050,7 @@ function generateReport() {
   const fixedByCat = {};
   months.forEach(m => {
     (getMonthData(m).fixedItems||[])
-      .filter(f => !FIXED_NON_EXPENSE.includes(f.cat) && f.cat !== 'insurance')  // insurance counted in 人事費用
+      .filter(f => !FIXED_NON_EXPENSE.includes(f.cat) && f.cat !== 'laborIns')  // laborIns counted in 人事費用
       .forEach(f => { fixedByCat[f.cat] = (fixedByCat[f.cat]||0) + f.amount; });
   });
 
@@ -4097,6 +4098,13 @@ function generateReport() {
     { label:'廠商貨款', val:-vndWithAdv,   color:'#E8C07A' },
     ...fixedWfItems,
   ].filter(x => x.val !== 0)
+    .sort((a, b) => {
+      if (a.isTotal) return -1;      // 總營收 always first
+      if (b.isTotal) return 1;
+      if (a.label === '淨利') return 1;  // 淨利 always last
+      if (b.label === '淨利') return -1;
+      return a.val - b.val;  // most negative (largest expense) first
+    })
     .sort((a,b) => {
       if (a.isTotal) return -1;  // 總營收 always first
       if (b.isTotal) return 1;
@@ -4227,7 +4235,7 @@ function generateReport() {
       { label:'日結雜支（含代墊）', fn: m => { const s=calcMonthStats(m); const adv=getMonthData(m).advances.filter(a=>!a._noExpense).reduce((ss,a)=>ss+a.amount,0); return s.totalMiscOnly + adv; }, fmt: fmtRaw, gold: false },
       { label:'廠商貨款',     fn: m => calcMonthStats(m).vendorTotal,    fmt: fmtRaw,  gold: false },
       { label:'廣告費',       fn: m => getMonthData(m).fixedItems.filter(f=>f.cat==='ads').reduce((s,f)=>s+f.amount,0), fmt: fmtRaw, gold: false },
-      { label:'固定支出',     fn: m => { const d=getMonthData(m); return (d.fixedItems||[]).filter(f=>!['prevBalance','cashFloat','insurance','miscMonthly','ads'].includes(f.cat)).reduce((s,f)=>s+f.amount,0); }, fmt: fmtRaw, gold: false },
+      { label:'固定支出',     fn: m => { const d=getMonthData(m); return (d.fixedItems||[]).filter(f=>!['prevBalance','cashFloat','laborIns','miscMonthly','ads'].includes(f.cat)).reduce((s,f)=>s+f.amount,0); }, fmt: fmtRaw, gold: false },
       { label:'月淨利',       fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); return hist&&hist._netProfit ? hist._netProfit : s.netProfit; }, fmt: fmtRaw, gold: true },
       { label:'利潤率',       fn: m => { const s=calcMonthStats(m); const hist=getMonthData(m).entries.find(e=>e._isHistorical); const net = hist&&hist._netProfit ? hist._netProfit : s.netProfit; return s.totalRevenue>0 ? net/s.totalRevenue*100 : 0; }, fmt: v=>v.toFixed(1)+'%', gold: false },
       { label:'累積盈餘',     fn: m => { if (!window._extendedCumul) renderCumulativeChart(); const cd = window._extendedCumul||[]; const found = cd.find(r=>r.month===m); return found ? found.cumulative : 0; }, fmt: v=>v?fmtRaw(v):'—', gold: true },
