@@ -3058,7 +3058,7 @@ function seedData() {
 let _syncTimer = null;
 
 function saveAll() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '117', data: allData, bonusConfig, staffConfig }));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: '119', data: allData, bonusConfig, staffConfig }));
   // Auto-sync to Google Sheets (debounced 800ms)
   if (GS_URL) {
     clearTimeout(_syncTimer);
@@ -3070,7 +3070,7 @@ function saveFTHistory() {
   localStorage.setItem(STORAGE_KEY + '_ftBonus', JSON.stringify(ftBonusHistory));
 }
 function loadAll() {
-  const DATA_VERSION = '117';
+  const DATA_VERSION = '119';
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) {
     const parsed = JSON.parse(raw);
@@ -3649,8 +3649,23 @@ function renderPayments() {
   });
 }
 
+// 正規化人名/字串：去前後空白 + 連續空白合併 + 全形英數轉半形
+function normalizeName(s) {
+  if (!s) return '';
+  return String(s)
+    .replace(/[\uFF01-\uFF5E]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))  // 全形→半形
+    .replace(/\u3000/g, ' ')              // 全形空白→半形空白
+    .replace(/\s+/g, ' ')                 // 連續空白合併
+    .trim();
+}
+
+// 比對 key（用於分組）：正規化 + 小寫
+function nameKey(s) {
+  return normalizeName(s).toLowerCase();
+}
+
 function addAdvance() {
-  const name   = document.getElementById('adv-name').value.trim();
+  const name   = normalizeName(document.getElementById('adv-name').value);
   const cat    = document.getElementById('adv-cat').value;
   const amount = +document.getElementById('adv-amount').value;
   const note   = document.getElementById('adv-note').value.trim();
@@ -4266,11 +4281,16 @@ function generateReport() {
       <div style="font-size:12px;color:var(--muted);margin-bottom:10px;letter-spacing:0.1em;text-transform:uppercase;">代墊款（月底匯款）— 合計 ${fmtRaw(advAll.reduce((s,a)=>s+a.amount,0))}</div>
       ${(() => {
         if (!advAll.length) return '<div style=\"color:var(--muted);font-size:13px\">本月無代墊款</div>';
-        const byP = {};
-        advAll.forEach(a => { byP[a.name] = (byP[a.name]||0) + a.amount; });
+        // 用 normalized lowercase 當 key 分組，保留首次出現的顯示名稱
+        const byP = {};        // key -> { display, total }
+        advAll.forEach(a => {
+          const k = nameKey(a.name);
+          if (!byP[k]) byP[k] = { display: normalizeName(a.name), total: 0 };
+          byP[k].total += a.amount;
+        });
         const total = advAll.reduce((s,a)=>s+a.amount,0);
-        return Object.entries(byP).map(([n,v]) =>
-          `<div style=\"display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;\"><span>${n}</span><span style=\"font-family:Space Mono,monospace;color:var(--gold)\">${fmtRaw(v)}</span></div>`
+        return Object.values(byP).map(({display, total: v}) =>
+          `<div style=\"display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;\"><span>${display}</span><span style=\"font-family:Space Mono,monospace;color:var(--gold)\">${fmtRaw(v)}</span></div>`
         ).join('') + `<div style=\"display:flex;justify-content:space-between;padding:8px 0;font-weight:700;font-size:13px;\"><span style=\"color:var(--muted)\">合計</span><span style=\"font-family:Space Mono,monospace;color:var(--gold-l)\">${fmtRaw(total)}</span></div>`;
       })()}
     </div>
@@ -4842,7 +4862,19 @@ function renderMiscItems() {
     }
     return [];
   });
-  const items = [...entryItems, ...monthItems];
+  // 併入 advances 中 cat 為 misc_* 的項目（顯示用）
+  const advMisc = (d.advances || [])
+    .map((a, advIdx) => ({ a, advIdx }))
+    .filter(({a}) => (a.cat||'').startsWith('misc_'))
+    .map(({a, advIdx}) => ({
+      date: a.date,
+      desc: `${a.note || ''}（${a.name} 代墊）`.replace(/^（/, '（'),
+      cat: a.cat.replace('misc_',''),
+      amount: a.amount,
+      _isAdvance: true,
+      _advIdx: advIdx,
+    }));
+  const items = [...entryItems, ...monthItems, ...advMisc];
   const total = items.reduce((s,i)=>s+i.amount,0);
   document.getElementById('miscTotalChip').textContent = 'NT$' + fmtRaw(total);
 
@@ -4891,12 +4923,16 @@ function renderMiscItems() {
   if (!tbody) return;
   tbody.innerHTML = items.map((item,i) => {
     const color = MISC_CAT_COLORS[item.cat]||'#88785A';
+    const advBadge = item._isAdvance ? ' <span style="font-size:9px;color:#E8C07A;background:#E8C07A22;padding:1px 5px;border-radius:3px;margin-left:4px;">代墊</span>' : '';
+    const delBtn = item._isAdvance
+      ? `<button class="btn btn-danger btn-sm" onclick="delAdvance(${item._advIdx})">✕</button>`
+      : `<button class="btn btn-danger btn-sm" onclick="delMiscItem(${i})">✕</button>`;
     return `<tr>
       <td class="td-mono" style="font-size:12px">${item.date}</td>
       <td>${item.desc}</td>
-      <td><span class="misc-cat-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${MISC_CAT_LABELS[item.cat]||item.cat}</span></td>
+      <td><span class="misc-cat-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${MISC_CAT_LABELS[item.cat]||item.cat}</span>${advBadge}</td>
       <td class="td-right td-gold">${fmtRaw(item.amount)}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="delMiscItem(${i})">✕</button></td>
+      <td>${delBtn}</td>
     </tr>`;
   }).join('');
 }
@@ -5041,7 +5077,19 @@ function renderFixedItems() {
   }
   const d = getMonthData(currentMonth);
   const items = d.fixedItems || [];
-  const expItems = items.filter(f => !FIXED_NON_EXPENSE.includes(f.cat));
+  // 併入 advances 中 cat 為 fixed_* 的項目（只用於顯示，原始資料仍只存於 advances）
+  const advFixed = (d.advances || [])
+    .filter(a => (a.cat||'').startsWith('fixed_'))
+    .map((a, advIdx) => ({
+      cat: a.cat.replace('fixed_',''),
+      amount: a.amount,
+      note: `${a.note || ''}（${a.name} 代墊）`.replace(/^（/, '（'),
+      date: a.date,
+      _isAdvance: true,
+      _advIdx: advIdx,
+    }));
+  const allItems = [...items, ...advFixed];
+  const expItems = allItems.filter(f => !FIXED_NON_EXPENSE.includes(f.cat));
   const total = expItems.reduce((s,f) => s+f.amount, 0);
 
   const chip = document.getElementById('fixedTotalChip');
@@ -5094,16 +5142,21 @@ function renderFixedItems() {
   const foot  = document.getElementById('fixedItemsFoot');
   if (!tbody) return;
 
-  tbody.innerHTML = items.map((f, i) => {
+  // Note: 顯示時 fixedItems 在前，advances 在後；fixedItem 的原 index 即陣列 i
+  tbody.innerHTML = allItems.map((f, i) => {
     const color = FIXED_CAT_COLORS[f.cat] || '#88785A';
     const label = FIXED_CAT_LABELS[f.cat] || f.cat;
     const isNonExp = FIXED_NON_EXPENSE.includes(f.cat);
+    const advBadge = f._isAdvance ? ' <span style="font-size:9px;color:#E8C07A;background:#E8C07A22;padding:1px 5px;border-radius:3px;margin-left:4px;">代墊</span>' : '';
+    const delBtn = f._isAdvance
+      ? `<button class="btn btn-danger btn-sm" onclick="delAdvance(${f._advIdx})">✕</button>`
+      : `<button class="btn btn-danger btn-sm" onclick="delFixedItem(${i})">✕</button>`;
     return `<tr>
       <td class="td-mono" style="font-size:12px">${f.date}</td>
-      <td><span class="cat-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${label}</span></td>
+      <td><span class="cat-badge" style="background:${color}22;color:${color};border:1px solid ${color}44">${label}</span>${advBadge}</td>
       <td class="td-muted">${f.note}</td>
       <td class="td-right ${isNonExp?'td-mono':'td-gold'}">${fmtRaw(f.amount)}</td>
-      <td><button class="btn btn-danger btn-sm" onclick="delFixedItem(${i})">✕</button></td>
+      <td>${delBtn}</td>
     </tr>`;
   }).join('');
 
